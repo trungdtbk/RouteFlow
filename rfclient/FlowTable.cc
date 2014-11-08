@@ -91,16 +91,16 @@ FlowTable::FlowTable(const FlowTable& other) {
 }
 
 void FlowTable::operator()() {
-    switch (this->source) {
-        case RS_NETLINK: {
-            initNLListener();
-            break;
-        }
-        default: {
-            syslog(LOG_CRIT, "Invalid route source specified. Disabling route updates.");
-            break;
-        }
-    }
+	switch (this->source) {
+	        case RS_NETLINK: {
+	            initNLListener();
+	            break;
+	        }
+	        default: {
+	            syslog(LOG_CRIT, "Invalid route source specified. Disabling route updates.");
+	            break;
+	        }
+	    }
 
     GWResolver = boost::thread(&FlowTable::GWResolverCb, this);
     GWResolver.join();
