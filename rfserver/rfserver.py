@@ -134,14 +134,18 @@ class DefaultRouteModTranslator(RouteModTranslator):
         return rms
     # This method used to remove flow entries from switches when 
     # users make a change (i.e. delete) of an association
-    def dp_flows_remove_by_vm_port(self, entry):
+    def dp_flows_table_update(self, entry):
         rms = []
+        
         rm = RouteMod(RMT_DELETE, self.dp_id)
         rm.add_match(Match.IN_PORT(entry.dp_port))
-        rm.add_match(Match.ETHERNET(entry.eth_addr))
         rm.add_option(self.DEFAULT_PRIORITY)
         rms.append(rm)
-        print rm
+        
+        rm = RouteMod(RMT_DELETE, self.dp_id)
+        rm.set_outport(entry.dp_port)
+        rm.add_option(self.DEFAULT_PRIORITY)
+        rms.append(rm)
         return rms
 
 class SatelliteRouteModTranslator(DefaultRouteModTranslator):
@@ -554,7 +558,7 @@ class RFServer(RFProtocolFactory, IPC.IPCMessageProcessor):
                                   (format_id(rf_entry.dp_id), rf_entry.dp_port, format_id(rf_entry.vs_id), rf_entry.vs_port))
                     #TODO: Update flow table of related dp
                     translator = self.route_mod_translator[rf_entry.dp_id]
-                    rms = translator.dp_flows_remove_by_vm_port(rf_entry)
+                    rms = translator.dp_flows_table_update(rf_entry)
                     for rm in rms:
                         self.send_route_mod(rf_entry.ct_id, rm)
             return True

@@ -51,7 +51,7 @@ class Match(TLV):
     @classmethod
     def IN_PORT(cls, port):
         return cls(RFMT_IN_PORT, port)
-
+    
     @classmethod
     def VLAN_ID(cls, tag):
         return cls(RFMT_VLAN_ID, tag)
