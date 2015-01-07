@@ -14,6 +14,7 @@ DATAPATH_DOWN = 3
 VIRTUAL_PLANE_MAP = 4
 DATA_PLANE_MAP = 5
 ROUTE_MOD = 6
+DATA_PORT_REQUEST = 7
 
 class PortRegister(IPCMessage):
     def __init__(self, vm_id=None, vm_port=None, hwaddress=None):
@@ -306,12 +307,24 @@ class VirtualPlaneMap(IPCMessage):
         return s
 
 class DataPlaneMap(IPCMessage):
-    def __init__(self, ct_id=None, dp_id=None, dp_port=None, vs_id=None, vs_port=None):
+    def __init__(self, ct_id=None, dp_id=None, dp_port=None, vs_id=None, vs_port=None, operation_id=None):
         self.set_ct_id(ct_id)
         self.set_dp_id(dp_id)
         self.set_dp_port(dp_port)
         self.set_vs_id(vs_id)
         self.set_vs_port(vs_port)
+        
+        self.set_operation_id(operation_id)
+    
+    def get_operation_id(self):
+        return self.operation_id
+    
+    def set_operation_id(self, operation_id):
+        operation_id = 0 if operation_id is None else operation_id
+        try:
+            self.operation_id = int(operation_id)
+        except:
+            self.operation_id = 0
 
     def get_type(self):
         return DATA_PLANE_MAP
@@ -372,6 +385,7 @@ class DataPlaneMap(IPCMessage):
         self.set_dp_port(data["dp_port"])
         self.set_vs_id(data["vs_id"])
         self.set_vs_port(data["vs_port"])
+        self.set_operation_id(data["operation_id"])
 
     def to_dict(self):
         data = {}
@@ -380,6 +394,7 @@ class DataPlaneMap(IPCMessage):
         data["dp_port"] = str(self.get_dp_port())
         data["vs_id"] = str(self.get_vs_id())
         data["vs_port"] = str(self.get_vs_port())
+        data["operation_id"] = str(self.get_operation_id())
         return data
 
     def __str__(self):
