@@ -408,7 +408,7 @@ class DataPlaneMap(IPCMessage):
 
 class RouteMod(IPCMessage):
     def __init__(self, mod=None, id=None, vm_port=None, table=None, group=None,
-                 matches=None, actions=None, options=None):
+                 matches=None, actions=None, options=None, outport=None):
         self.set_mod(mod)
         self.set_id(id)
         self.set_vm_port(vm_port)
@@ -417,6 +417,14 @@ class RouteMod(IPCMessage):
         self.set_matches(matches)
         self.set_actions(actions)
         self.set_options(options)
+        self.set_outport(outport)
+        
+    # This is for dynamic mapping, to delete entries based on output
+    def get_outport(self):
+        return self.outport
+    
+    def set_outport(self, outport):
+        self.outport = outport
 
     def get_type(self):
         return ROUTE_MOD
@@ -519,6 +527,11 @@ class RouteMod(IPCMessage):
         self.set_matches(data["matches"])
         self.set_actions(data["actions"])
         self.set_options(data["options"])
+        try:
+            outport = data["outport"]            
+        except:
+            outport = None
+        self.set_outport(outport)
 
     def to_dict(self):
         data = {}
@@ -530,6 +543,7 @@ class RouteMod(IPCMessage):
         data["matches"] = self.get_matches()
         data["actions"] = self.get_actions()
         data["options"] = self.get_options()
+        data["outport"] = self.get_outport()
         return data
 
     def __str__(self):
