@@ -1,25 +1,26 @@
 #!/bin/bash
 
 # Set to 0 to use external switch(es)
-STARTBVMS=1
+STARTBVMS=0
 
 # If rfserverconfig.csv and rfserverinternal.csv exist in /home/projectw,
 # use them and don't try to configure rfvm1. If they do not exist, use values
 # below for default config.
-DPPORTNET=172.31
+DPPORTNET=172.16
 DPPORTNETV6=fc00::
-DPPORTS=2
-SWITCH1DPID=0x99
+DPPORTS=$2 # Number of ports per datapath
+SWITCH1DPID=0x01
+SWITCH2DPID=0x02
 MULTITABLEDPS="''"
 SATELLITEDPS="''"
 
-HOME=/home/projectw
+HOME=/home/ubuntu
 RF_HOME=$HOME/RouteFlow
 RFSERVERCONFIG=/tmp/rfserverconfig.csv
 RFSERVERINTERNAL=/tmp/rfserverinternal.csv
 HOME_RFSERVERCONFIG="$HOME/"`basename $RFSERVERCONFIG`
 HOME_RFSERVERINTERNAL="$HOME/"`basename $RFSERVERINTERNAL`
-CONTROLLER_PORT=6653
+CONTROLLER_PORT=6633
 LXCDIR=/var/lib/lxc
 RFVM1=$LXCDIR/rfvm1
 RFBR=br0
@@ -28,8 +29,10 @@ RFDPID=7266767372667673
 OFP=OpenFlow13
 RFVM1IP=192.168.10.100
 HOSTVMIP=192.168.10.1
-OVSSOCK=/tmp/openvswitch-db.sock
-VSCTL="ovs-vsctl --db=unix:$OVSSOCK"
+#OVSSOCK=/tmp/openvswitch-db.sock
+#VSCTL="ovs-vsctl --db=unix:$OVSSOCK"
+#OFCTL="ovs-ofctl -O$OFP"
+VSCTL="ovs-vsctl"
 OFCTL="ovs-ofctl -O$OFP"
 export PATH=$PATH:/usr/local/bin:/usr/local/sbin
 export PYTHONPATH=$PYTHONPATH:$RF_HOME
@@ -145,78 +148,93 @@ default_config() {
     # Default rfserver config
     cp /dev/null $RFSERVERINTERNAL
     echo "vm_id,ct_id,dp_id,dp_port,eth_addr,rem_ct,rem_id,rem_port,rem_eth_addr" > $RFSERVERINTERNAL
+    for i in `seq 1 $((2*$DPPORTS))`; do
+        for j in `seq $(($i + 1)) $((2*$DPPORTS))`; do
+        	cat >> $RFSERVERINTERNAL <<EOF
+0x12a0a0a0a0a0,0,$SWITCH1DPID,1,\
+12:a1:a1:a1:a2:`printf '%02x' $i`,\
+0,$SWITCH2DPID,1,12:a1:a1:a1:a2:`printf '%02x' $j`
+EOF
+                done
+        done
+        
     cp /dev/null $RFSERVERCONFIG
     echo "vm_id,vm_port,ct_id,dp_id,dp_port" > $RFSERVERCONFIG
-    for i in `seq 1 $DPPORTS` ; do
-      echo 0x12a0a0a0a0a0,$i,0,$SWITCH1DPID,$i >> $RFSERVERCONFIG
+    for i in `seq 1 $((2*$DPPORTS))` ; do
+    	if [ $i -le $DPPORTS ]; then
+    		echo 0x12a0a0a0a0a0,$i,0,$SWITCH1DPID,$(($i+1)) >> $RFSERVERCONFIG
+    	else
+    		echo 0x12a0a0a0a0a0,$i,0,$SWITCH2DPID,$(($i-$DPPORTS + 1)) >> $RFSERVERCONFIG
+    	fi
     done
 
     # Configure the VM
     cat > $RFVM1/config <<EOF
-lxc.tty = 4
-lxc.pts = 1024
-lxc.rootfs = $ROOTFS 
-lxc.mount  = $RFVM1/fstab
-
-lxc.cgroup.devices.deny = a
-# /dev/null and zero
-lxc.cgroup.devices.allow = c 1:3 rwm
-lxc.cgroup.devices.allow = c 1:5 rwm
-# consoles
-lxc.cgroup.devices.allow = c 5:1 rwm
-lxc.cgroup.devices.allow = c 5:0 rwm
-#lxc.cgroup.devices.allow = c 4:0 rwm
-#lxc.cgroup.devices.allow = c 4:1 rwm
-# /dev/{,u}random
-lxc.cgroup.devices.allow = c 1:9 rwm
-lxc.cgroup.devices.allow = c 1:8 rwm
-lxc.cgroup.devices.allow = c 136:* rwm
-lxc.cgroup.devices.allow = c 5:2 rwm
-# rtc
-lxc.cgroup.devices.allow = c 254:0 rwm
-
-lxc.utsname = rfvm1
-
-lxc.network.type = veth
-lxc.network.flags = up
-lxc.network.name = eth0
-lxc.network.hwaddr = 12:a0:a0:a0:a0:a0
-lxc.network.veth.pair = rfvm1.0
-
+	lxc.tty = 4
+	lxc.pts = 1024
+	lxc.rootfs = $ROOTFS 
+	lxc.mount  = $RFVM1/fstab
+	
+	lxc.cgroup.devices.deny = a
+	# /dev/null and zero
+	lxc.cgroup.devices.allow = c 1:3 rwm
+	lxc.cgroup.devices.allow = c 1:5 rwm
+	# consoles
+	lxc.cgroup.devices.allow = c 5:1 rwm
+	lxc.cgroup.devices.allow = c 5:0 rwm
+	#lxc.cgroup.devices.allow = c 4:0 rwm
+	#lxc.cgroup.devices.allow = c 4:1 rwm
+	# /dev/{,u}random
+	lxc.cgroup.devices.allow = c 1:9 rwm
+	lxc.cgroup.devices.allow = c 1:8 rwm
+	lxc.cgroup.devices.allow = c 136:* rwm
+	lxc.cgroup.devices.allow = c 5:2 rwm
+	# rtc
+	lxc.cgroup.devices.allow = c 254:0 rwm
+	
+	lxc.utsname = rfvm1
+	
+	lxc.network.type = veth
+	lxc.network.flags = up
+	lxc.network.name = eth0
+	lxc.network.hwaddr = 12:a0:a0:a0:a0:a0
+	lxc.network.veth.pair = rfvm1.0
+	
 EOF
-
-for i in `seq 1 $DPPORTS` ; do
-	cat >> $RFVM1/config<<EOF
-lxc.network.type = veth
-lxc.network.flags = up
-lxc.network.name = eth$i
-lxc.network.hwaddr = 12:a1:a1:a1:a2:$i
-lxc.network.veth.pair = rfvm1.$i
-
+	
+	for i in `seq 1 $((2*$DPPORTS))` ; do
+		cat >> $RFVM1/config<<EOF
+		lxc.network.type = veth
+		lxc.network.flags = up
+		lxc.network.name = eth$i
+		lxc.network.hwaddr = 12:a1:a1:a1:a2:`printf '%02x' $i`
+		lxc.network.veth.pair = rfvm1.$i
+		
 EOF
-done
-
-    cat > $ROOTFS/etc/network/interfaces <<EOF
-auto lo
-iface lo inet loopback
-
-auto eth0
-iface eth0 inet static
-    address $RFVM1IP
-    netmask 255.255.255.0
+	done
+	
+	cat > $ROOTFS/etc/network/interfaces <<EOF
+		auto lo
+		iface lo inet loopback
+		
+		auto eth0
+		iface eth0 inet static
+		    address $RFVM1IP
+		    netmask 255.255.255.0
 EOF
-
-for i in `seq 1 $DPPORTS` ; do
-        cat >> $RFVM1/rootfs/etc/network/interfaces<<EOF
-
-auto eth$i
-iface eth$i inet static
-   address $DPPORTNET.$i.1
-   netmask 255.255.255.0
-iface eth$i inet6 static
-   address $DPPORTNETV6$i:1/112
+	
+	for i in `seq 1 $((2*$DPPORTS))` ; do
+		cat >> $RFVM1/rootfs/etc/network/interfaces<<EOF
+	
+		auto eth$i
+		iface eth$i inet static
+		address $DPPORTNET.$(($i%254)).254
+		   netmask 255.255.255.0
+		iface eth$i inet6 static
+		   address $DPPORTNETV6$i:1/112
 EOF
-done
+	
+	done
 }
 
 start_rfvm1() {
@@ -226,14 +244,15 @@ start_rfvm1() {
     cp /dev/null $ROOTFS/var/log/syslog
 
     cat > $ROOTFS/etc/rc.local <<EOF
-/root/run_rfclient.sh &
-exit 0
+	/root/run_rfclient.sh &
+	exit 0
 EOF
 
     cat > $ROOTFS/root/run_rfclient.sh <<EOF
-#!/bin/sh
-/opt/rfclient/rfclient > /var/log/rfclient.log 2> /var/log/rfclient.log.err
+	#!/bin/sh
+	/opt/rfclient/rfclient > /var/log/rfclient.log 2> /var/log/rfclient.log.err
 EOF
+    
     chmod +x $RFVM1/rootfs/root/run_rfclient.sh
 
     # Create the rfclient dir
@@ -241,6 +260,7 @@ EOF
     mkdir -p $RFCLIENTDIR
 
     # Copy the rfclient executable
+	cd $RF_HOME
     cp rfclient/rfclient $RFCLIENTDIR/rfclient
     cp -p -P /usr/local/lib/libzmq* $ROOTFS/usr/local/lib
     chroot $ROOTFS ldconfig
@@ -253,13 +273,13 @@ EOF
 reset() {
     echo_bold "-> Stopping and resetting LXC VMs...";
     lxc-stop -n rfvm1 &> /dev/null;
-    lxc-stop -n b1 &> /dev/null;
-    lxc-stop -n b2 &> /dev/null;
+    #lxc-stop -n b1 &> /dev/null;
+    #lxc-stop -n b2 &> /dev/null;
 
     init=$1;
     if [ $init -eq 1 ]; then
         echo_bold "-> Starting OVS daemons...";
-	start_ovs
+		#start_ovs
     else
         echo_bold "-> Stopping child processes...";
         kill_process_tree 1 $$
@@ -298,11 +318,13 @@ if [ "$ACTION" != "RESET" ]; then
     ifconfig $RFBR $HOSTVMIP
 
     echo_bold "-> Starting RFServer..."
-    nice ./rfserver/rfserver.py $RFSERVERCONFIG -i $RFSERVERINTERNAL -m $MULTITABLEDPS -s $SATELLITEDPS &
+    #winpdb ./rfserver/rfserver.py $RFSERVERCONFIG -i $RFSERVERINTERNAL -m $MULTITABLEDPS -s $SATELLITEDPS &
+	./rfserver/rfserver.py $RFSERVERCONFIG -i $RFSERVERINTERNAL -m $MULTITABLEDPS -s $SATELLITEDPS &
 
     echo_bold "-> Starting the controller ($ACTION) and RFPRoxy..."
     case "$ACTION" in
     RYU)
+    	cd ..
         cd ryu-rfproxy
         ryu-manager --use-stderr --ofp-tcp-listen-port=$CONTROLLER_PORT ryu-rfproxy/rfproxy.py &
         ;;
