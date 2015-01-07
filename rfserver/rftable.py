@@ -18,6 +18,9 @@ RFCONFIGENTRY = 1
 RFISLCONFENTRY = 2
 RFISLENTRY = 3
 
+RFVMPORTENTRY = 4
+RFDPPORTENTRY = 5
+
 class EntryFactory:
     @staticmethod
     def make(type_):
@@ -29,6 +32,10 @@ class EntryFactory:
             return RFISLEntry()
         elif type_ == RFISLCONFENTRY:
             return RFISLConfEntry()
+        elif type_ == RFVMPORTENTRY:
+            return RFVMPortEntry()
+        elif type_ == RFDPPORTENTRY:
+            return RFDPPortEntry();
 
 class EntryTable(TableBase):
     def __init__(self, name, entry_type):
@@ -195,7 +202,21 @@ class RFEntry:
                 self.dp_port is None and
                 self.vs_id is None and
                 self.vs_port is None)
-
+    
+    # Used for dynamic mapping to update dp port info of an entry
+    def update_dp_port(self, ct_id = None,dp_id=None, dp_port=None):
+        self.ct_id = ct_id
+        self.dp_id = dp_id
+        self.dp_port = dp_port
+    
+    # Used for dynamic mapping to update vm port info of an entry
+    def update_vm_port(self, vm_id = None, vm_port=None, vs_id=None, vs_port=None, eth_addr=None):
+        self.vm_id = vm_id
+        self.vm_port = vm_port
+        self.vs_id = vs_id
+        self.vs_port = vs_port
+        self.eth_addr = eth_addr
+        
     def _is_idle_dp_port(self):
         return (self.vm_id is None and
                 self.vm_port is None and
@@ -450,7 +471,18 @@ class RFConfigEntry:
         self.ct_id = ct_id
         self.dp_id = dp_id
         self.dp_port = dp_port
-
+    
+    # Used for dynamic mapping to update dp port info of an entry
+    def update_dp_port(self, ct_id, dp_id, dp_port):
+        self.ct_id = ct_id
+        self.dp_id = dp_id
+        self.dp_port = dp_port
+    
+    # Used for dynamic mapping to update vm port info of an entry
+    def update_vm_port(self, vm_id, vm_port):
+        self.vm_id = vm_id
+        self.vm_port = vm_port
+    
     def __str__(self):
         return "vm_id: %s vm_port: %s "\
                "dp_id: %s dp_port: %s "\
@@ -476,3 +508,85 @@ class RFConfigEntry:
         pack_into_dict(data, self, "dp_id")
         pack_into_dict(data, self, "dp_port")
         return data
+
+class RFVMPortEntry:
+    def __init__(self, id=None, vm_id=None, vm_port=None, eth_addr=None, vs_id=None, vs_port=None, state=None):
+        self.id = id
+        self.vm_id = vm_id
+        self.vm_port = vm_port
+        self.eth_addr = eth_addr
+        self.vs_id = vs_id
+        self.vs_port = vs_port
+        self.state = state
+    
+    def update_vs(self, vs_id, vs_port):
+        self.vs_id = vs_id
+        self.vs_port = vs_port
+            
+    def update_eth_addr(self, eth_addr):
+        self.eth_addr = eth_add
+        
+    def to_dict(self):
+        data = {}
+        if self.id is not None:
+            data["_id"] = self.id
+        pack_into_dict(data, self, "vm_id")
+        pack_into_dict(data, self, "vm_port")
+        pack_into_dict(data, self, "vs_id")
+        pack_into_dict(data, self, "vs_port")
+        pack_into_dict(data, self, "eth_addr")
+        return data
+    
+    def from_dict(self, data):
+        self.id = data["_id"]
+        load_from_dict(data, self, "vm_id")
+        load_from_dict(data, self, "vm_port")
+        load_from_dict(data, self, "eth_addr")
+        load_from_dict(data, self, "vs_id")
+        load_from_dict(data, self, "vs_port")
+        
+class RFVMPortTable(EntryTable):
+    def __init__(self):
+        EntryTable.__init__(self, RFVMPORTTABLE_NAME, RFVMPORTENTRY)
+    
+    def get_vm_port_info(self, vm_id, vm_port):
+        result = self.get_entries(vm_id=vm_id,
+                                  vm_port=vm_port)
+        if not result:
+            return None
+        return result[0]
+        
+
+class RFDPPortTable(EntryTable):
+    def __init__(self):
+        EntryTable.__init__(self, RFDPPORTTABLE_NAME, RFDPPORTENTRY)
+
+    def get_dp_port_info(self, ct_id, dp_id, dp_port):
+        result = self.get_entries(ct_id= ct_id, dp_id=dp_id,
+                                  dp_port=dp_port)
+        if not result:
+            return None
+        return result[0]
+                
+class RFDPPortEntry:
+    def __init__(self, id=None, ct_id=None, dp_id=None, dp_port=None, state=None):
+        self.id = id
+        self.ct_id = ct_id
+        self.dp_id = dp_id
+        self.dp_port = dp_port
+        self.state = state
+    
+    def to_dict(self):
+        data = {}
+        if self.id is not None:
+            data["_id"] = self.id
+        pack_into_dict(data, self, "ct_id")
+        pack_into_dict(data, self, "dp_port")
+        pack_into_dict(data, self, "dp_id")
+        return data
+    
+    def from_dict(self, data):
+        self.id = data["_id"]
+        load_from_dict(data, self, "ct_id")
+        load_from_dict(data, self, "dp_port")
+        load_from_dict(data, self, "dp_id")

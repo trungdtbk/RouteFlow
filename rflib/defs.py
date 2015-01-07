@@ -2,7 +2,7 @@
 IPC_TYPE = 'zeromq'  # options are 'zeromq' or 'mongo'
 DB_TYPE = 'memory'   # options are 'memory' or 'mongo'
 
-MONGO_ADDRESS = "192.168.10.1:27017"
+MONGO_ADDRESS = "127.0.0.1:27017"
 MONGO_DB_NAME = "db"
 
 ZEROMQ_ADDRESS =  "tcp://192.168.10.1:25555"
@@ -14,6 +14,9 @@ RFTABLE_NAME = "rftable"
 RFCONFIG_NAME = "rfconfig"
 RFISL_NAME = "rfisl"
 RFISLCONF_NAME = "rfislconf"
+
+RFVMPORTTABLE_NAME = "vmporttable"
+RFDPPORTTABLE_NAME = "dpporttable"
 
 RFSERVER_ID = "rfserver"
 RFPROXY_ID = "rfproxy"
@@ -64,8 +67,14 @@ PCT_ROUTEMOD_ACK = 3
 PC_MAP = 0
 PC_RESET = 1
 
+# Data plane Port Map Configuration (DCT_)
+DCT_UPDATE_DP = 0 # Update Proxy map table by DP info
+DCT_UPDATE_VS = 1 # Update Proxy map table by VS info
+DCT_DELETE_DP = 2 # Delete Proxy map table by DP info
+DCT_DELETE_VS = 3 # Delete Proxy map table by VS info
+
 # Format 12-digit hex ID
-format_id = lambda dp_id: hex(dp_id).rstrip("L")
+format_id = lambda dp_id: hex(dp_id).rstrip("L") if (dp_id is not None) else 'None'
 
 netmask_prefix = lambda a: sum([bin(int(x)).count("1") for x in a.split(".", 4)])
 cidr_to_mask = lambda a: ((1 << a) - 1) << (32 - a)
