@@ -427,6 +427,7 @@ void FlowTable::updateRouteTable(  struct rtnl_route *route,
     memset(intf, 0, IF_NAMESIZE + 1);
 
     if (rtnl_route_get_table(route) != RT_TABLE_MAIN) {
+        syslog(LOG_DEBUG, "received route with invalid table, ignoring");
         return;
     }
 
@@ -438,6 +439,7 @@ void FlowTable::updateRouteTable(  struct rtnl_route *route,
         family = IPV6;
         break;
     default:
+        syslog(LOG_DEBUG, "received route with invalid family, ignoring");
         return;
     }
 
@@ -463,10 +465,12 @@ void FlowTable::updateRouteTable(  struct rtnl_route *route,
     rtnl_link_i2name(link_cache, ifindex, intf, sizeof(intf));
 
     if (strcmp(intf, DEFAULT_RFCLIENT_INTERFACE) == 0) {
+        syslog(LOG_DEBUG, "received route for rfclient interface, ignoring");
         return;
     }
 
     if (getInterface(intf, "route", &rentry->interface) != 0) {
+        syslog(LOG_DEBUG, "unable to retrieve interface for route, ignoring");
         return;
     }
 
@@ -495,6 +499,8 @@ void FlowTable::updateRouteTable(  struct rtnl_route *route,
                    net.c_str(), mask.c_str(), gw.c_str());
             this->pendingRoutes.push(PendingRoute(RMT_DELETE, *rentry));
             break;
+        default:
+            syslog(LOG_DEBUG, "route with invalid action, ignoring");
     }
 
     return;
