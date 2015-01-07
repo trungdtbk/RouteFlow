@@ -6,7 +6,7 @@ from SimpleXMLRPCServer import SimpleXMLRPCServer
 class RFServerRPC():
     def __init__(self, rfserver):
         self.rfserver = rfserver
-        self.rpcserver = SimpleXMLRPCServer(("localhost", 8008))
+        self.rpcserver = SimpleXMLRPCServer(("localhost", 8008), allow_none=True)
         
         self.rpcserver.register_instance(RPC_processor(self.rfserver))
         print "RPC server started"
@@ -48,11 +48,18 @@ class RPC_processor():
             
         return json.dumps(results)
     
-    def delete_single_mapping(self, vm_id=None, vm_port=None, ct_id=None, dp_id=None, dp_port=None):
+    def delete_single_mapping(self, vm_id=None, vm_port=None, ct_id=0, dp_id=None, dp_port=None):
+        if vm_id is not None:
+            vm_id = int(vm_id, 16)
+        if dp_id is not None:
+            dp_id = int(dp_id, 16)
         return self.rfserver.delete_single_mapping(vm_id=vm_id, vm_port=vm_port,
                                                    ct_id=ct_id, dp_id=dp_id, dp_port=dp_port)
-        #return True
     
-    def update_single_mapping(self, vm_id=None, vm_port=None, ct_id=None, dp_id=None, dp_port=None):
+    def update_single_mapping(self, vm_id=None, vm_port=None, ct_id=0, dp_id=None, dp_port=None):
+        if vm_id is not None:
+            vm_id = int(vm_id, 16)
+        if dp_id is not None:
+            dp_id = int(dp_id, 16)
         return self.rfserver.update_single_mapping(vm_id=vm_id, vm_port=vm_port,
-                                                     ct_id=ct_id, dp_id=dp_id, dp_port=dp_port)
+                                                   ct_id=ct_id, dp_id=dp_id, dp_port=dp_port)

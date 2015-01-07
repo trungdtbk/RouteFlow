@@ -33,16 +33,15 @@ class DeleteCommand(Command):
         return parser
         
     def take_action(self, parsed_args):
-        vm_id = None if parsed_args.vm_id is None else int(str(parsed_args.vm_id), 16)
+        vm_id = None if parsed_args.vm_id is None else str(parsed_args.vm_id)
         vm_port = None if parsed_args.vm_port is None else int(str(parsed_args.vm_port))
         
-        dp_id = None if parsed_args.dp_id is None else int(str(parsed_args.dp_id), 16)
+        dp_id = None if parsed_args.dp_id is None else str(parsed_args.dp_id)
         dp_port = None if parsed_args.dp_port is None else int(str(parsed_args.dp_port))
         ct_id = None if parsed_args.ct_id is None else int(str(parsed_args.ct_id))
         
         rfserver = self.app.rfserver
-        result = rfserver.delete_single_mapping(vm_id=vm_id, vm_port=vm_port, 
-                                                ct_id=ct_id, dp_id=dp_id, dp_port=dp_port)
+        result = rfserver.delete_single_mapping(vm_id, vm_port, ct_id, dp_id, dp_port)
         if result:
             self.app.log.info("Delete operation successful")
         else:
@@ -62,15 +61,15 @@ class UpdateCommand(Command):
         return parser
         
     def take_action(self, parsed_args):
-        vm_id = None if parsed_args.vm_id is None else int(str(parsed_args.vm_id), 16)
+        vm_id = None if parsed_args.vm_id is None else str(parsed_args.vm_id)
         vm_port = None if parsed_args.vm_port is None else int(str(parsed_args.vm_port))
         
-        dp_id = None if parsed_args.dp_id is None else int(str(parsed_args.dp_id), 16)
+        dp_id = None if parsed_args.dp_id is None else str(parsed_args.dp_id)
         dp_port = None if parsed_args.dp_port is None else int(str(parsed_args.dp_port))
         ct_id = None if parsed_args.ct_id is None else int(str(parsed_args.ct_id))
         
         rfserver = self.app.rfserver
-        result = rfserver.update_single_mapping(vm_id=vm_id, vm_port=vm_port, ct_id=ct_id, dp_id=dp_id, dp_port=dp_port)
+        result = rfserver.update_single_mapping(vm_id, vm_port, ct_id, dp_id, dp_port)
         if result:
             self.app.log.info("Delete operation successful")
         else:
@@ -180,7 +179,7 @@ class RFServerCLI(App):
     log = logging.getLogger(__name__)
     log.setLevel(logging.INFO)
     def __init__(self):
-        self.rfserver = xmlrpclib.ServerProxy('http://localhost:8008')
+        self.rfserver = xmlrpclib.ServerProxy('http://localhost:8008', allow_none=True)
         command = CommandManager('RFServer')
         super(RFServerCLI, self).__init__(
             description = 'RFServer',
