@@ -24,11 +24,16 @@ class DeleteCommand(Command):
 
     def get_parser(self, prog_name):
         parser = super(DeleteCommand, self).get_parser(prog_name)
-        parser.add_argument('-vm_id', '--vm_id', type=str, required=False, default=None)
-        parser.add_argument('-vm_port', '--vm_port', type=str, required=False, default=None)
-        parser.add_argument('-dp_id', '--dp_id', type=str, required=False, default=None)
-        parser.add_argument('-dp_port', '--dp_port', type=str, required=False, default=None)
-        parser.add_argument('-ct_id', '--ct_id', type=str, required=False, default=0)
+        parser.add_argument('-vm_id', '--vm_id', type=str, 
+                            required=False, default=None)
+        parser.add_argument('-vm_port', '--vm_port', type=str, 
+                            required=False, default=None)
+        parser.add_argument('-dp_id', '--dp_id', type=str, 
+                            required=False, default=None)
+        parser.add_argument('-dp_port', '--dp_port', type=str, 
+                            required=False, default=None)
+        parser.add_argument('-ct_id', '--ct_id', type=str, 
+                            required=False, default=0)
 
         return parser
         
@@ -41,22 +46,58 @@ class DeleteCommand(Command):
         ct_id = None if parsed_args.ct_id is None else int(str(parsed_args.ct_id))
         
         rfserver = self.app.rfserver
-        result = rfserver.delete_single_mapping(vm_id, vm_port, ct_id, dp_id, dp_port)
-        if result:
-            self.app.log.info("Delete operation successful")
-        else:
-            self.app.log.info("Delete operation failed")
+        count = \
+                rfserver.delete_map_configs(vm_id, vm_port, ct_id, dp_id, dp_port)
+        
+        self.app.log.info("%i have been deleted" % count)
+        
+class AddCommand(Command):
+    log = logging.getLogger(__name__)
 
+    def get_parser(self, prog_name):
+        parser = super(AddCommand, self).get_parser(prog_name)
+        parser.add_argument('-vm_id', '--vm_id', type=str, 
+                            required=True, default=None)
+        parser.add_argument('-vm_port', '--vm_port', type=str, 
+                            required=True, default=None)
+        parser.add_argument('-dp_id', '--dp_id', type=str, 
+                            required=True, default=None)
+        parser.add_argument('-dp_port', '--dp_port', type=str, 
+                            required=True, default=None)
+        parser.add_argument('-ct_id', '--ct_id', type=str, 
+                            required=False, default=0)
+
+        return parser
+        
+    def take_action(self, parsed_args):
+        vm_id = None if parsed_args.vm_id is None else str(parsed_args.vm_id)
+        vm_port = None if parsed_args.vm_port is None else int(str(parsed_args.vm_port))
+        
+        dp_id = None if parsed_args.dp_id is None else str(parsed_args.dp_id)
+        dp_port = None if parsed_args.dp_port is None else int(str(parsed_args.dp_port))
+        ct_id = None if parsed_args.ct_id is None else int(str(parsed_args.ct_id))
+        
+        rfserver = self.app.rfserver
+        if rfserver.add_map_config(vm_id, vm_port, ct_id, dp_id, dp_port):
+            self.app.log.info("Done!")
+        else:
+            self.app.log.info("Failed!")
+            
 class UpdateCommand(Command):
     log = logging.getLogger(__name__)
 
     def get_parser(self, prog_name):
         parser = super(UpdateCommand, self).get_parser(prog_name)
-        parser.add_argument('-vm_id', '--vm_id', type=str, required=True, default=None)
-        parser.add_argument('-vm_port', '--vm_port', type=str, required=True, default=None)
-        parser.add_argument('-dp_id', '--dp_id', type=str, required=True, default=None)
-        parser.add_argument('-dp_port', '--dp_port', type=str, required=True, default=None)
-        parser.add_argument('-ct_id', '--ct_id', type=str, required=False, default=0)
+        parser.add_argument('-vm_id', '--vm_id', type=str, 
+                            required=True, default=None)
+        parser.add_argument('-vm_port', '--vm_port', type=str, 
+                            required=True, default=None)
+        parser.add_argument('-dp_id', '--dp_id', type=str, 
+                            required=True, default=None)
+        parser.add_argument('-dp_port', '--dp_port', type=str, 
+                            required=True, default=None)
+        parser.add_argument('-ct_id', '--ct_id', type=str, 
+                            required=None, default=0)
 
         return parser
         
@@ -69,17 +110,17 @@ class UpdateCommand(Command):
         ct_id = None if parsed_args.ct_id is None else int(str(parsed_args.ct_id))
         
         rfserver = self.app.rfserver
-        result = rfserver.update_single_mapping(vm_id, vm_port, ct_id, dp_id, dp_port)
-        if result:
-            self.app.log.info("Delete operation successful")
+        if rfserver.update_map_config(vm_id, vm_port, ct_id, dp_id, dp_port):
+            self.app.log.info("Done!")
         else:
-            self.app.log.info("Delete operation failed")
+            self.app.log.info("Failed!")
 
-class ViewCommand(Command):    
+class ViewCommand(Command):
     def get_parser(self, prog_name):
         parser = super(ViewCommand, self).get_parser(prog_name)
         parser.add_argument('view', nargs='?', default='rftable')
-        parser.add_argument('-filter', '--filter', type=str, required=False, default=None)
+        parser.add_argument('-filter', '--filter', type=str, 
+                            required=False, default=None)
 
         return parser
     
@@ -111,8 +152,10 @@ class ViewCommand(Command):
                                      'ct_id', 'dp_id','dp_port', 'vs_id', 'vs_port'))
         for entry in entries:
             self.app.stdout.write("{:<18} {:<8} {:<18} {:<8} {:<8} {:<8} {:<18} {:<8}\n".\
-                                  format(format_id(entry['vm_id']), entry['vm_port'], entry['eth_addr'],\
-                                         entry['ct_id'], entry['dp_id'], entry['dp_port'], entry['vs_id'], entry['vs_port']))
+                                  format(format_id(entry['vm_id']), entry['vm_port'], 
+                                         entry['eth_addr'], entry['ct_id'], 
+                                         entry['dp_id'], entry['dp_port'], 
+                                         entry['vs_id'], entry['vs_port']))
          
         self.app.stdout.write("\n")
         
@@ -124,8 +167,11 @@ class ViewCommand(Command):
                                      'eth_addr', 'rem_ct','rem_dp', 'rm_port', 'rem_addr'))
         for entry in entries:
             self.app.stdout.write("{:<18} {:<8} {:<8} {:<8} {:<18} {:<8} {:<8} {:<8} {:<18}\n".\
-                                  format(format_id(entry['vm_id']), entry['ct_id'], entry['dp_id'], entry['dp_port'],\
-                                         entry['eth_addr'], entry['rem_ct'], entry['rem_id'], entry['rem_port'], entry['rem_eth_addr']))
+                                  format(format_id(entry['vm_id']), 
+                                         entry['ct_id'], entry['dp_id'], 
+                                         entry['dp_port'], entry['eth_addr'], 
+                                         entry['rem_ct'], entry['rem_id'], 
+                                         entry['rem_port'], entry['rem_eth_addr']))
          
         self.app.stdout.write("\n")
     
@@ -137,8 +183,11 @@ class ViewCommand(Command):
                                      'eth_addr', 'rem_ct','rem_dp', 'rm_port', 'rem_addr'))
         for entry in entries:
             self.app.stdout.write("{:<18} {:<8} {:<8} {:<8} {:<18} {:<8} {:<8} {:<8} {:<18}\n".\
-                                  format(format_id(entry['vm_id']), entry['ct_id'], entry['dp_id'], entry['dp_port'],\
-                                         entry['eth_addr'], entry['rem_ct'], entry['rem_id'], entry['rem_port'], entry['rem_eth_addr']))
+                                  format(format_id(entry['vm_id']), 
+                                         entry['ct_id'], entry['dp_id'], 
+                                         entry['dp_port'], entry['eth_addr'], 
+                                         entry['rem_ct'], entry['rem_id'], 
+                                         entry['rem_port'], entry['rem_eth_addr']))
          
         self.app.stdout.write("\n")
         
@@ -149,7 +198,9 @@ class ViewCommand(Command):
                               format('vm_id', 'vm_port', 'ct_id', 'dp_id', 'dp_port'))
         for entry in entries:
             self.app.stdout.write("{:<18} {:<8} {:<8} {:<8} {:<8}\n".\
-                                  format(format_id(entry['vm_id']), entry['vm_port'], entry['ct_id'], entry['dp_id'], entry['dp_port']))
+                                  format(format_id(entry['vm_id']), 
+                                         entry['vm_port'], entry['ct_id'], 
+                                         entry['dp_id'], entry['dp_port']))
          
         self.app.stdout.write("\n")
         
@@ -160,7 +211,9 @@ class ViewCommand(Command):
                               format('vm_id', 'vm_port', 'vs_id', 'vs_port','eth_addr'))
         for entry in entries:
             self.app.stdout.write("{:<18} {:<8} {:<8} {:<8} {:<8}\n".\
-                                  format(format_id(entry['vm_id']), entry['vm_port'], entry['vs_id'], entry['vs_port'], entry['eth_addr']))
+                                  format(format_id(entry['vm_id']), 
+                                         entry['vm_port'], entry['vs_id'], 
+                                         entry['vs_port'], entry['eth_addr']))
          
         self.app.stdout.write("\n")
         
@@ -171,7 +224,8 @@ class ViewCommand(Command):
                               format('ct_id', 'dp_port', 'dp_port'))
         for entry in entries:
             self.app.stdout.write("{:<8} {:<8} {:<8}\n".\
-                                  format(entry['ct_id'], entry['dp_id'], entry['dp_port']))
+                                  format(entry['ct_id'], 
+                                         entry['dp_id'], entry['dp_port']))
          
         self.app.stdout.write("\n")
       
@@ -188,6 +242,7 @@ class RFServerCLI(App):
         commands = {
             'delete': DeleteCommand,
             'update': UpdateCommand,
+            'add'   : AddCommand,
             'view': ViewCommand,}
         for k,v in commands.iteritems():
             command.add_command(k, v)
