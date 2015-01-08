@@ -48,18 +48,40 @@ class RPC_processor():
             
         return json.dumps(results)
     
-    def delete_single_mapping(self, vm_id=None, vm_port=None, ct_id=0, dp_id=None, dp_port=None):
+    def delete_map_configs(self, vm_id=None, vm_port=None, ct_id=None, dp_id=None, dp_port=None):        
+        kwargs = {}
+        
         if vm_id is not None:
-            vm_id = int(vm_id, 16)
+            kwargs['vm_id'] = int(vm_id, 16)
+        
+        if vm_port is not None:
+            kwargs['vm_port'] = vm_port
+            
+        if ct_id is not None:
+            kwargs['ct_id'] = ct_id
+            
         if dp_id is not None:
-            dp_id = int(dp_id, 16)
-        return self.rfserver.delete_single_mapping(vm_id=vm_id, vm_port=vm_port,
-                                                   ct_id=ct_id, dp_id=dp_id, dp_port=dp_port)
+            kwargs['dp_id'] = int(dp_id, 16)
+        
+        if dp_port is not None:
+            kwargs['dp_port'] = dp_port
+            
+        return self.rfserver.delete_map_configs(**kwargs)
     
-    def update_single_mapping(self, vm_id=None, vm_port=None, ct_id=0, dp_id=None, dp_port=None):
+    def add_map_config(self, vm_id, vm_port, ct_id, dp_id, dp_port):
         if vm_id is not None:
             vm_id = int(vm_id, 16)
         if dp_id is not None:
             dp_id = int(dp_id, 16)
-        return self.rfserver.update_single_mapping(vm_id=vm_id, vm_port=vm_port,
-                                                   ct_id=ct_id, dp_id=dp_id, dp_port=dp_port)
+        return self.rfserver.add_map_config(vm_id=vm_id, vm_port=vm_port, 
+                                            ct_id=ct_id, 
+                                            dp_id=dp_id, dp_port=dp_port)
+    
+    def update_map_config(self, vm_id, vm_port, ct_id, dp_id, dp_port):
+        if vm_id is not None:
+            vm_id = int(vm_id, 16)
+        if dp_id is not None:
+            dp_id = int(dp_id, 16)
+        return self.rfserver.update_map_config(vm_id=vm_id, vm_port=vm_port,
+                                               ct_id=ct_id,
+                                               dp_id=dp_id, dp_port=dp_port)

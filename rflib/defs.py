@@ -68,10 +68,8 @@ PC_MAP = 0
 PC_RESET = 1
 
 # Data plane Port Map Configuration (DCT_)
-DCT_UPDATE_DP = 0 # Update Proxy map table by DP info
-DCT_UPDATE_VS = 1 # Update Proxy map table by VS info
-DCT_DELETE_DP = 2 # Delete Proxy map table by DP info
-DCT_DELETE_VS = 3 # Delete Proxy map table by VS info
+DCT_MAP_ADD = 0 # Add a Proxy map table entry
+DCT_MAP_DELETE = 1 # Delete a Proxy map table entry
 
 # Format 12-digit hex ID
 format_id = lambda dp_id: hex(dp_id).rstrip("L") if (dp_id is not None) else 'None'
