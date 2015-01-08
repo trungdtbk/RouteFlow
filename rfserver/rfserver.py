@@ -37,6 +37,8 @@ logging.basicConfig(
 REGISTER_IDLE = 0
 REGISTER_ASSOCIATED = 1
 REGISTER_ISL = 2
+# Added to solve the problem when proxy dies and come to life again
+REGISTER_ACTIVE = 3
 
 class RouteModTranslator(object):
 
@@ -113,7 +115,14 @@ class DefaultRouteModTranslator(RouteModTranslator):
     
         entries = self.rftable.get_entries(dp_id=entry.dp_id,
                                            ct_id=entry.ct_id)
-        entries.extend(self.isltable.get_entries(dp_id=entry.dp_id,
+        
+        #TODO: Restore this. This change used for testing only
+        #entries.extend(self.isltable.get_entries(dp_id=entry.dp_id,
+        #                                         ct_id=entry.ct_id))
+        
+        # Only install flows to dp_ports that are mapped to the vm
+        entries.extend(self.isltable.get_entries(vm_id=entry.vm_id,
+                                                 dp_id=entry.dp_id,
                                                  ct_id=entry.ct_id))
 
         # Replace the VM port with the datapath port
@@ -801,9 +810,12 @@ class RFServer(RFProtocolFactory, IPC.IPCMessageProcessor):
         elif rm.get_mod() in (RMT_ADD, RMT_DELETE):
             rms.extend(translator.handle_route_mod(entry, rm))
 
-            remote_dps = self.isltable.get_entries(rem_ct=entry.ct_id,
+            #TODO: Restore this. This change used for testing only
+            #remote_dps = self.isltable.get_entries(rem_ct=entry.ct_id,
+            #                                       rem_id=entry.dp_id)
+            remote_dps = self.isltable.get_entries(vm_id=entry.vm_id,
+                                                   rem_ct=entry.ct_id,
                                                    rem_id=entry.dp_id)
-
             for r in remote_dps:
                 if r.get_status() == RFISL_ACTIVE:
                     local_rm = copy.deepcopy(rm)
@@ -848,6 +860,10 @@ class RFServer(RFProtocolFactory, IPC.IPCMessageProcessor):
             # If there's an idle VM entry matching configuration, associate
             elif entry.get_status() == RFENTRY_IDLE_VM_PORT:
                 action = REGISTER_ASSOCIATED
+            # This action used to update proxy's table when it comes back from
+            # a reset
+            elif entry.get_status() == RFENTRY_ACTIVE:
+                action = REGISTER_ACTIVE
 
         # Apply action
         if action == REGISTER_IDLE:
@@ -855,12 +871,14 @@ class RFServer(RFProtocolFactory, IPC.IPCMessageProcessor):
                                            dp_port=dp_port))
             self.log.info("Registering datapath port as idle (dp_id=%s, "
                           "dp_port=%i)" % (format_id(dp_id), dp_port))
-        elif action == REGISTER_ASSOCIATED:                
+        elif action == REGISTER_ASSOCIATED:
             entry.associate(dp_id, dp_port, ct_id)
             
             # We can ACTIVATE a mapping with info from VM ports table
             # without the need of PortMap msg
-            vm_port_info = self.vmporttable.get_vm_port_info(vm_id=entry.vm_id, vm_port=entry.vm_port)
+            vm_port_info = \
+                        self.vmporttable.get_vm_port_info(vm_id=entry.vm_id, 
+                                                          vm_port=entry.vm_port)
             if vm_port_info is not None and vm_port_info.vs_id is not None:
                 entry.activate(vs_id=vm_port_info.vs_id, 
                                vs_port=vm_port_info.vs_port)
@@ -869,6 +887,9 @@ class RFServer(RFProtocolFactory, IPC.IPCMessageProcessor):
                                dp_id=entry.dp_id, dp_port=entry.dp_port,
                                vs_id=entry.vs_id, vs_port=entry.vs_port, operation_id=DCT_MAP_ADD)
                 self.ipc.send(RFSERVER_RFPROXY_CHANNEL, str(entry.ct_id), msg)
+                
+                # The PortConfig used for getting config messages for the
+                # switch
                 msg = PortConfig(vm_id=entry.vm_id, vm_port=entry.vm_port,
                              operation_id=PCT_MAP_SUCCESS)
                 self.ipc.send(RFCLIENT_RFSERVER_CHANNEL, str(entry.vm_id), msg)
@@ -881,7 +902,21 @@ class RFServer(RFProtocolFactory, IPC.IPCMessageProcessor):
                                            entry.vm_port))
         elif action == REGISTER_ISL:
             self._register_islconf(islconfs, ct_id, dp_id, dp_port)
-
+        
+        # This is to fix the problem when Proxy comes back after it's been reset
+        # proxy lost its table, but rfserver is not gonna send DataPlanMap msg
+        elif action == REGISTER_ACTIVE:
+            msg = DataPlaneMap(ct_id=entry.ct_id,
+                               dp_id=entry.dp_id, dp_port=entry.dp_port,
+                               vs_id=entry.vs_id, vs_port=entry.vs_port, 
+                               operation_id=DCT_MAP_ADD)
+            self.ipc.send(RFSERVER_RFPROXY_CHANNEL, str(entry.ct_id), msg)
+                
+            # The PortConfig used for getting config messages for the
+            # switch
+            msg = PortConfig(vm_id=entry.vm_id, vm_port=entry.vm_port,
+                             operation_id=PCT_MAP_SUCCESS)
+            self.ipc.send(RFCLIENT_RFSERVER_CHANNEL, str(entry.vm_id), msg)
     
     def _register_islconf(self, c_entries, ct_id, dp_id, dp_port):
         for conf in c_entries:
@@ -1000,10 +1035,11 @@ class RFServer(RFProtocolFactory, IPC.IPCMessageProcessor):
     # PortMap methods
     def map_port(self, vm_id, vm_port, vs_id, vs_port):
         
-        # Check if the port is already in VM Ports Table, Update the port entry if found
+        # Check if the port is already in VM Ports Table, 
+        # Update the port entry if found
         entry = self.vmporttable.get_vm_port_info(vm_id = vm_id, vm_port = vm_port)
         if entry is not None:
-            entry.update_vs(vs_id = vs_id, vs_port = vs_port)
+            entry.update_vs(vs_id=vs_id, vs_port=vs_port)
             self.vmporttable.set_entry(entry)
             #TODO: Because we keep VS info, so no need RFClient to send this msg anymore
             # When register dp port, we can get vm and vs info to update rftable

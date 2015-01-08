@@ -207,10 +207,10 @@ class ViewCommand(Command):
     def view_vmports(self, **kwargs):
         rfserver = self.app.rfserver
         entries = json.loads(rfserver.get_rfvmports())
-        self.app.stdout.write("{:<18} {:<8} {:<8} {:<8} {:<8}\n\n".\
+        self.app.stdout.write("{:<18} {:<8} {:<22} {:<8} {:<18}\n\n".\
                               format('vm_id', 'vm_port', 'vs_id', 'vs_port','eth_addr'))
         for entry in entries:
-            self.app.stdout.write("{:<18} {:<8} {:<8} {:<8} {:<8}\n".\
+            self.app.stdout.write("{:<18} {:<8} {:<22} {:<8} {:<18}\n".\
                                   format(format_id(entry['vm_id']), 
                                          entry['vm_port'], entry['vs_id'], 
                                          entry['vs_port'], entry['eth_addr']))

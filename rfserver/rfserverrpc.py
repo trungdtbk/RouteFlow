@@ -32,6 +32,22 @@ class RPC_processor():
             
         return json.dumps(results)
     
+    def get_rfislconfig(self):
+        entries = self.rfserver.islconf.get_entries()
+        results = []
+        for entry in entries:
+            results.append(entry.to_dict())
+            
+        return json.dumps(results)
+    
+    def get_rfisltable(self):
+        entries = self.rfserver.isltable.get_entries()
+        results = []
+        for entry in entries:
+            results.append(entry.to_dict())
+            
+        return json.dumps(results)
+    
     def get_rfvmports(self):
         entries = self.rfserver.vmporttable.get_entries()
         results = []
