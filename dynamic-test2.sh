@@ -195,7 +195,7 @@ if [ "$ACTION" != "RESET" ]; then
         cp $HOME_RFSERVERINTERNAL $RFSERVERINTERNAL
     else
         echo_bold "-> Run with default config..."
-        cp /dev/null > $RFSERVERCONFIG
+        cp /dev/null $RFSERVERCONFIG
         echo "vm_id,vm_port,ct_id,dp_id,dp_port" > $RFSERVERCONFIG
         
         # Initially, rfvmA is mapped the port1 to dp1, port1
