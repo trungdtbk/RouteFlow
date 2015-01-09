@@ -156,6 +156,12 @@ class DefaultRouteModTranslator(RouteModTranslator):
         rm.set_outport(entry.dp_port)
         rm.add_option(self.DEFAULT_PRIORITY)
         rms.append(rm)
+        
+        rm = RouteMod(RMT_DELETE, self.dp_id)
+        rm.add_match(Match.ETHERNET(entry.eth_addr))
+        rm.add_option(self.DEFAULT_PRIORITY)
+        rms.append(rm)
+        
         return rms
 
 class SatelliteRouteModTranslator(DefaultRouteModTranslator):
@@ -579,6 +585,14 @@ class RFServer(RFProtocolFactory, IPC.IPCMessageProcessor):
                                   (format_id(rf_entry.dp_id), 
                                    rf_entry.dp_port, format_id(rf_entry.vs_id), 
                                    rf_entry.vs_port))
+                    
+                    self.ipc.send(RFCLIENT_RFSERVER_CHANNEL, str(rf_entry.vm_id), 
+                                  PortConfig(vm_id=rf_entry.vm_id, 
+                                             vm_port=rf_entry.vm_port, 
+                                             operation_id=PCT_RESET))
+                    self.log.info("Resetting client port (vm_id=%s, vm_port=%i)" % 
+                                  (format_id(rf_entry.vm_id), rf_entry.vm_port))
+                    
                     # Now update switch flow table
                     translator = self.route_mod_translator[rf_entry.dp_id]
                     rms = translator.delete_flows_by_port(rf_entry)
@@ -876,6 +890,10 @@ class RFServer(RFProtocolFactory, IPC.IPCMessageProcessor):
             
             # We can ACTIVATE a mapping with info from VM ports table
             # without the need of PortMap msg
+            # Don't need this temporarily, because I'm not gonna disable PortMap
+            # now. As I keep all vm_port info, PortMap is not necessary. But disable
+            # it later
+            """
             vm_port_info = \
                         self.vmporttable.get_vm_port_info(vm_id=entry.vm_id, 
                                                           vm_port=entry.vm_port)
@@ -893,7 +911,7 @@ class RFServer(RFProtocolFactory, IPC.IPCMessageProcessor):
                 msg = PortConfig(vm_id=entry.vm_id, vm_port=entry.vm_port,
                              operation_id=PCT_MAP_SUCCESS)
                 self.ipc.send(RFCLIENT_RFSERVER_CHANNEL, str(entry.vm_id), msg)
-            
+            """
             self.rftable.set_entry(entry)
             self.log.info("Registering datapath port and associating to "
                           "client port (dp_id=%s, dp_port=%i, vm_id=%s, "
@@ -979,6 +997,11 @@ class RFServer(RFProtocolFactory, IPC.IPCMessageProcessor):
         if is_rfvs(dp_id):
             return True
         else:
+            #TODO: Trung: Not quite sure when we need to check this
+            # with the first dp port register msg comes in, this "if" statement
+            # will false, the subsequences are OK, then we create RM translator
+            # I'm going to change this, so it can work when run RF with empty 
+            # config???
             if (self.rftable.is_dp_registered(ct_id, dp_id) or
                 self.isltable.is_dp_registered(ct_id, dp_id)):
                 if dp_id not in self.route_mod_translator:
@@ -1037,13 +1060,17 @@ class RFServer(RFProtocolFactory, IPC.IPCMessageProcessor):
         
         # Check if the port is already in VM Ports Table, 
         # Update the port entry if found
+        # Disable this code portion for now, because it causes an issue with dp 
+        # comming back from a reset (when restart Mininet, no flow entries are 
+        # installed
+        """
         entry = self.vmporttable.get_vm_port_info(vm_id = vm_id, vm_port = vm_port)
         if entry is not None:
             entry.update_vs(vs_id=vs_id, vs_port=vs_port)
             self.vmporttable.set_entry(entry)
             #TODO: Because we keep VS info, so no need RFClient to send this msg anymore
             # When register dp port, we can get vm and vs info to update rftable
-        
+        """
         entry = None
         entry = self.rftable.get_entry_by_vm_port(vm_id, vm_port)
         if entry is not None and entry.get_status() == RFENTRY_ASSOCIATED:
