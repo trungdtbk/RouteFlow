@@ -170,68 +170,66 @@ EOF
 
     # Configure the VM
     cat > $RFVM1/config <<EOF
-	lxc.tty = 4
-	lxc.pts = 1024
-	lxc.rootfs = $ROOTFS 
-	lxc.mount  = $RFVM1/fstab
+lxc.tty = 4
+lxc.pts = 1024
+lxc.rootfs = $ROOTFS 
+lxc.mount  = $RFVM1/fstab
 	
-	lxc.cgroup.devices.deny = a
-	# /dev/null and zero
-	lxc.cgroup.devices.allow = c 1:3 rwm
-	lxc.cgroup.devices.allow = c 1:5 rwm
-	# consoles
-	lxc.cgroup.devices.allow = c 5:1 rwm
-	lxc.cgroup.devices.allow = c 5:0 rwm
-	#lxc.cgroup.devices.allow = c 4:0 rwm
-	#lxc.cgroup.devices.allow = c 4:1 rwm
-	# /dev/{,u}random
-	lxc.cgroup.devices.allow = c 1:9 rwm
-	lxc.cgroup.devices.allow = c 1:8 rwm
-	lxc.cgroup.devices.allow = c 136:* rwm
-	lxc.cgroup.devices.allow = c 5:2 rwm
-	# rtc
-	lxc.cgroup.devices.allow = c 254:0 rwm
+lxc.cgroup.devices.deny = a
+# /dev/null and zero
+lxc.cgroup.devices.allow = c 1:3 rwm
+lxc.cgroup.devices.allow = c 1:5 rwm
+# consoles
+lxc.cgroup.devices.allow = c 5:1 rwm
+lxc.cgroup.devices.allow = c 5:0 rwm
+#lxc.cgroup.devices.allow = c 4:0 rwm
+#lxc.cgroup.devices.allow = c 4:1 rwm
+# /dev/{,u}random
+lxc.cgroup.devices.allow = c 1:9 rwm
+lxc.cgroup.devices.allow = c 1:8 rwm
+lxc.cgroup.devices.allow = c 136:* rwm
+lxc.cgroup.devices.allow = c 5:2 rwm
+# rtc
+lxc.cgroup.devices.allow = c 254:0 rwm
 	
-	lxc.utsname = rfvm1
+lxc.utsname = rfvm1
 	
-	lxc.network.type = veth
-	lxc.network.flags = up
-	lxc.network.name = eth0
-	lxc.network.hwaddr = 12:a0:a0:a0:a0:a0
-	lxc.network.veth.pair = rfvm1.0
-	
+lxc.network.type = veth
+lxc.network.flags = up
+lxc.network.name = eth0
+lxc.network.hwaddr = 12:a0:a0:a0:a0:a0
+lxc.network.veth.pair = rfvm1.0	
 EOF
 	
 	for i in `seq 1 $((2*$DPPORTS))` ; do
 		cat >> $RFVM1/config<<EOF
-		lxc.network.type = veth
-		lxc.network.flags = up
-		lxc.network.name = eth$i
-		lxc.network.hwaddr = 12:a1:a1:a1:a2:`printf '%02x' $i`
-		lxc.network.veth.pair = rfvm1.$i
-		
+lxc.network.type = veth
+lxc.network.flags = up
+lxc.network.name = eth$i
+lxc.network.hwaddr = 12:a1:a1:a1:a2:`printf '%02x' $i`
+lxc.network.veth.pair = rfvm1.$i		
 EOF
 	done
 	
 	cat > $ROOTFS/etc/network/interfaces <<EOF
-		auto lo
-		iface lo inet loopback
+auto lo
+iface lo inet loopback
 		
-		auto eth0
-		iface eth0 inet static
-		    address $RFVM1IP
-		    netmask 255.255.255.0
+auto eth0
+iface eth0 inet static
+address $RFVM1IP
+netmask 255.255.255.0
 EOF
 	
 	for i in `seq 1 $((2*$DPPORTS))` ; do
-		cat >> $RFVM1/rootfs/etc/network/interfaces<<EOF
-	
-		auto eth$i
-		iface eth$i inet static
-		address $DPPORTNET.$(($i%254)).254
-		   netmask 255.255.255.0
-		iface eth$i inet6 static
-		   address $DPPORTNETV6$i:1/112
+		cat >> $RFVM1/rootfs/etc/network/interfaces<<EOF	
+		
+auto eth$i
+iface eth$i inet static
+address $DPPORTNET.$(($i%254)).254
+netmask 255.255.255.0
+iface eth$i inet6 static
+address $DPPORTNETV6$i:1/112
 EOF
 	
 	done
@@ -244,13 +242,13 @@ start_rfvm1() {
     cp /dev/null $ROOTFS/var/log/syslog
 
     cat > $ROOTFS/etc/rc.local <<EOF
-	/root/run_rfclient.sh &
-	exit 0
+/root/run_rfclient.sh &
+exit 0
 EOF
 
     cat > $ROOTFS/root/run_rfclient.sh <<EOF
-	#!/bin/sh
-	/opt/rfclient/rfclient > /var/log/rfclient.log 2> /var/log/rfclient.log.err
+#!/bin/sh
+/opt/rfclient/rfclient > /var/log/rfclient.log 2> /var/log/rfclient.log.err
 EOF
     
     chmod +x $RFVM1/rootfs/root/run_rfclient.sh
@@ -258,7 +256,6 @@ EOF
     # Create the rfclient dir
     RFCLIENTDIR=$ROOTFS/opt/rfclient
     mkdir -p $RFCLIENTDIR
-
     # Copy the rfclient executable
 	cd $RF_HOME
     cp rfclient/rfclient $RFCLIENTDIR/rfclient
