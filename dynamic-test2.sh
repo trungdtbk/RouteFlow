@@ -8,6 +8,7 @@ SATELLITEDPS="''"
 
 HOME=/home/ubuntu
 RF_HOME=$HOME/RouteFlow
+RYU_HOME=$HOME/ryu-rfproxy
 RFSERVERCONFIG=/tmp/rfserverconfig.csv
 RFSERVERINTERNAL=/tmp/rfserverinternal.csv
 HOME_RFSERVERCONFIG="$HOME/"`basename $RFSERVERCONFIG`
@@ -141,6 +142,13 @@ EOF
 #!/bin/sh
 /opt/rfclient/rfclient > /var/log/rfclient.log 2> /var/log/rfclient.log.err
 EOF
+		# Create the rfclient dir
+    	RFCLIENTDIR=$ROOTFS/opt/rfclient
+    	mkdir -p $RFCLIENTDIR
+    	# Copy the rfclient executable
+    	cp rfclient/rfclient $RFCLIENTDIR/rfclient
+    	#cp -p -P /usr/local/lib/libzmq* $ROOTFS/usr/local/lib
+    	chroot $ROOTFS ldconfig
 		chmod +x $ROOTFS/root/run_rfclient.sh
 		
     	cp /dev/null $ROOTFS/var/log/syslog
@@ -151,6 +159,7 @@ EOF
 }
 
 stop_rfvms() {
+	cd $RF_HOME
     echo_bold "-> Stopping the virtual machines..."
 	for vm in rfvmA rfvmB rfvmC rfvmD; do
     	lxc-stop -n $vm &> /dev/null;
@@ -217,8 +226,7 @@ if [ "$ACTION" != "RESET" ]; then
     echo_bold "-> Starting the controller ($ACTION) and RFPRoxy..."
     case "$ACTION" in
     RYU)
-    	cd ..
-        cd ryu-rfproxy
+        cd $RYU_HOME
         ryu-manager --use-stderr --ofp-tcp-listen-port=$CONTROLLER_PORT ryu-rfproxy/rfproxy.py &
         ;;
     esac
