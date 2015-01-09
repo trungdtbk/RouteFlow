@@ -228,11 +228,47 @@ class ViewCommand(Command):
                                          entry['dp_id'], entry['dp_port']))
          
         self.app.stdout.write("\n")
+
+class SaveCommand(Command):
+    log = logging.getLogger(__name__)
+
+    def get_parser(self, prog_name):
+        parser = super(SaveCommand, self).get_parser(prog_name)
+        parser.add_argument('-config', '--c', type=str, 
+                            required=None, default=None)
+        
+        parser.add_argument('-isl', '--i', type=str, 
+                            required=None, default=None)
+
+        return parser
+        
+    def take_action(self, parsed_args):
+        config_path = None if parsed_args.config is None \
+                    else str(parsed_args.config)
+                    
+        isl_path = None if parsed_args.isl is None \
+                    else str(parsed_args.isl)
+        
+        if self.app.rfconfig_path is None or self.app.islconf_path is None:
+            self.app.log.inf("Please provide filename once")
+            return
+        if config_path is not None:
+            self.app.rfconfig_path = config_path
+        if isl_path is not None:
+            self.app.islconf_path = isl_path
+            
+        rfserver = self.app.rfserver
+        entries = json.loads(rfserver.get_rfconfig())
+        entries = json.loads(rfserver.get_rfislconfig())
+        
+        
       
 class RFServerCLI(App):
     log = logging.getLogger(__name__)
     log.setLevel(logging.INFO)
     def __init__(self):
+        self.rfconfig_path = None
+        self.islconf_path = None
         self.rfserver = xmlrpclib.ServerProxy('http://localhost:8008', allow_none=True)
         command = CommandManager('RFServer')
         super(RFServerCLI, self).__init__(

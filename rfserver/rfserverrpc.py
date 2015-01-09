@@ -6,7 +6,7 @@ from SimpleXMLRPCServer import SimpleXMLRPCServer
 class RFServerRPC():
     def __init__(self, rfserver):
         self.rfserver = rfserver
-        self.rpcserver = SimpleXMLRPCServer(("localhost", 8008), allow_none=True)
+        self.rpcserver = SimpleXMLRPCServer(("", 8008), allow_none=True)
         
         self.rpcserver.register_instance(RPC_processor(self.rfserver))
         print "RPC server started"
