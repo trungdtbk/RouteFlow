@@ -170,9 +170,13 @@ EOF
 
     # Configure the VM
     cat > $RFVM1/config <<EOF
+# Distribution configuration
+lxc.include = /usr/share/lxc/config/ubuntu.common.conf
+lxc.arch = x86_64
 lxc.tty = 4
 lxc.pts = 1024
 lxc.rootfs = $ROOTFS 
+lxc.utsname = rfvm1
 lxc.mount  = $RFVM1/fstab
 	
 lxc.cgroup.devices.deny = a
@@ -192,8 +196,7 @@ lxc.cgroup.devices.allow = c 5:2 rwm
 # rtc
 lxc.cgroup.devices.allow = c 254:0 rwm
 	
-lxc.utsname = rfvm1
-	
+# Network configuration	
 lxc.network.type = veth
 lxc.network.flags = up
 lxc.network.name = eth0
