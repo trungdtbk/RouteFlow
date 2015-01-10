@@ -91,7 +91,8 @@ def prepare(rfserver, net):
     config = [{'vm_id': '2a0a0a0a0a0', 'vm_port': 1, 'dp_id': '1', 'dp_port': 1},
               {'vm_id': '2b0b0b0b0b0', 'vm_port': 1, 'dp_id': '2', 'dp_port': 1}]
     
-    rfserver.add_map_config(entry['vm_id'], entry['vm_port'], 
+    for entry in config:
+        rfserver.add_map_config(entry['vm_id'], entry['vm_port'], 
                                 0, entry['dp_id'], entry['dp_port'])
     
 def first_test(rfserver, net):
