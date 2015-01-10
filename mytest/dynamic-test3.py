@@ -30,11 +30,11 @@ import json
 #                 
 def myNetwork():
     
-    rfserver_ip = '192.168.56.101'
+    rfserver_ip = '192.168.56.111'
     # Initialize RPC connection to RFServer.
     #
     info("Connect to RFServer...\n")
-    rfserver = xmlrpclib.ServerProxy('http://' + '192.168.56.101' +':8008', 
+    rfserver = xmlrpclib.ServerProxy('http://' + rfserver_ip +':8008', 
                                      allow_none=True)
     
     info("Prepare network configuration for the tests...\n")
