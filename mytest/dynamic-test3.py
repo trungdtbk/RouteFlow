@@ -67,24 +67,19 @@ def myNetwork():
     net.start()
     run("ovs-vsctl set bridge s1 protocols=OpenFlow13")
     run("ovs-vsctl set bridge s2 protocols=OpenFlow13")
-    run("ovs-vsctl set bridge s3 protocols=OpenFlow13")
+    #run("ovs-vsctl set bridge s3 protocols=OpenFlow13")
     
     info('\n\n')
     prepare(rfserver, net)
-    info('Start the first test: \n')
+    #info('Start the first test: \n')
     first_test(rfserver, net)
     info('\n\n')
     info('Start the second test: \n')
-    second_test(rfserver, net)
+    #second_test(rfserver, net)
     info('\n\n')
     info('Start the third test: \n')
-    third_test(rfserver, net)
-    try:
-        while True:
-            pass
-    except KeyboardInterrupt:
-        pass
-    #CLI(net)
+    #third_test(rfserver, net)
+    CLI(net)
     net.stop()
 
 def prepare(rfserver, net):
@@ -97,7 +92,7 @@ def prepare(rfserver, net):
     
 def first_test(rfserver, net):
     info('Test 1 starting...\n')
-    info('Mapping configuration: rfvmA, rfvmB port 1,2 are mapped to S1, S2 port 1,2')
+    info('Mapping configuration: rfvmA, rfvmB port 1,2 are mapped to S1, S2 port 1,2\n')
     config = [{'vm_id': '2a0a0a0a0a0', 'vm_port': 2, 'dp_id': '1', 'dp_port': 2},
               {'vm_id': '2b0b0b0b0b0', 'vm_port': 2, 'dp_id': '2', 'dp_port': 2}]
     
@@ -109,14 +104,15 @@ def first_test(rfserver, net):
     net.get('h2').cmd('ping -c 1 172.16.2.1')
     info('Wait for flow entries installation completed...\n')
     time.sleep(10)
-    info(net.iperf())
+    #info(net.iperf())
     info('\n')
-    rfserver.delete_map_configs(config[0]['vm_id'])
+    #rfserver.delete_map_configs(config[0]['vm_id'])
+    #rfserver.delete_map_configs(config[1]['vm_id'])
     info('Test completed')
             
 def second_test(rfserver, net):
     info('Test 1 starting...\n')
-    info('Mapping configuration: rfvmA, rfvmB port 1,2 are mapped to S1, S2 port 1,3')
+    info('Mapping configuration: rfvmA, rfvmB port 1,2 are mapped to S1, S2 port 1,3\n')
     config = [{'vm_id': '2a0a0a0a0a0', 'vm_port': 2, 'dp_id': '1', 'dp_port': 3},
               {'vm_id': '2b0b0b0b0b0', 'vm_port': 2, 'dp_id': '2', 'dp_port': 3}]
     
@@ -131,11 +127,12 @@ def second_test(rfserver, net):
     info(net.iperf())
     info('\n')
     rfserver.delete_map_configs(config[0]['vm_id'])
+    rfserver.delete_map_configs(config[1]['vm_id'])
     info('Test completed\n')
         
 def third_test(rfserver, net):
     info('Test 1 starting...\n')
-    info('Mapping configuration: rfvmA, rfvmB port 1,2 are mapped to S1, S2 port 1,4')
+    info('Mapping configuration: rfvmA, rfvmB port 1,2 are mapped to S1, S2 port 1,4\n')
     config = [{'vm_id': '2a0a0a0a0a0', 'vm_port': 2, 'dp_id': '1', 'dp_port': 4},
               {'vm_id': '2b0b0b0b0b0', 'vm_port': 2, 'dp_id': '2', 'dp_port': 4}]
     
@@ -150,6 +147,7 @@ def third_test(rfserver, net):
     info(net.iperf())
     info('\n')
     rfserver.delete_map_configs(config[0]['vm_id'])
+    rfserver.delete_map_configs(config[1]['vm_id'])
     info('Test completed\n')
     
 if __name__ == '__main__':
