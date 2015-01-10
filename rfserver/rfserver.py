@@ -1002,20 +1002,20 @@ class RFServer(RFProtocolFactory, IPC.IPCMessageProcessor):
             # will false, the subsequences are OK, then we create RM translator
             # I'm going to change this, so it can work when run RF with empty 
             # config???
-            if (self.rftable.is_dp_registered(ct_id, dp_id) or
-                self.isltable.is_dp_registered(ct_id, dp_id)):
-                if dp_id not in self.route_mod_translator:
-                    self.log.info("Configuring datapath (dp_id=%s)" % format_id(dp_id))
-                    if dp_id in self.multitabledps:
-                        self.route_mod_translator[dp_id] = NoviFlowMultitableRouteModTranslator(
-                            dp_id, ct_id, self.rftable, self.isltable, self.log)
-                    elif dp_id in self.satellitedps:
-                        self.route_mod_translator[dp_id] = SatelliteRouteModTranslator(
-                            dp_id, ct_id, self.rftable, self.isltable, self.log)
-                    else:
-                        self.route_mod_translator[dp_id] = DefaultRouteModTranslator(
-                            dp_id, ct_id, self.rftable, self.isltable, self.log)
-                    self.send_datapath_config_messages(ct_id, dp_id) 
+            #if (self.rftable.is_dp_registered(ct_id, dp_id) or
+            #    self.isltable.is_dp_registered(ct_id, dp_id)):
+            if dp_id not in self.route_mod_translator:
+                self.log.info("Configuring datapath (dp_id=%s)" % format_id(dp_id))
+                if dp_id in self.multitabledps:
+                    self.route_mod_translator[dp_id] = NoviFlowMultitableRouteModTranslator(
+                        dp_id, ct_id, self.rftable, self.isltable, self.log)
+                elif dp_id in self.satellitedps:
+                    self.route_mod_translator[dp_id] = SatelliteRouteModTranslator(
+                        dp_id, ct_id, self.rftable, self.isltable, self.log)
+                else:
+                    self.route_mod_translator[dp_id] = DefaultRouteModTranslator(
+                        dp_id, ct_id, self.rftable, self.isltable, self.log)
+                self.send_datapath_config_messages(ct_id, dp_id)
             return False
     # DatapathDown methods
     def set_dp_down(self, ct_id, dp_id):
