@@ -524,7 +524,7 @@ class RFVMPortEntry:
         self.vs_port = vs_port
             
     def update_eth_addr(self, eth_addr):
-        self.eth_addr = eth_add
+        self.eth_addr = eth_addr
         
     def to_dict(self):
         data = {}
