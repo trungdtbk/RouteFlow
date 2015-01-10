@@ -91,38 +91,16 @@ FlowTable::FlowTable(const FlowTable& other) {
 }
 
 void FlowTable::operator()() {
-	rtnl_open(&rthNeigh, RTMGRP_NEIGH);
-	int rs = setsockopt(rthNeigh.fd, SOL_SOCKET, SO_RCVBUFFORCE, &nl_buffersize, sizeof(nl_buffersize));
-	if (rs != 0) {
-		syslog(LOG_CRIT, "cannot set socket size for neighbors: %d", errno);
-		exit(rs);
-	}
-	HTPolling = boost::thread(&rtnl_listen, &rthNeigh, &HTPollingCb, this);
-
-	switch (this->source) {
-		case RS_NETLINK: {
-			syslog(LOG_NOTICE, "Netlink interface enabled");
-			rtnl_open(&rth, RTMGRP_IPV4_ROUTE | RTMGRP_IPV6_ROUTE |
-							RTMGRP_IPV4_MROUTE | RTMGRP_IPV6_MROUTE);
-			int rs = setsockopt(rth.fd, SOL_SOCKET, SO_RCVBUFFORCE, &nl_buffersize, sizeof(nl_buffersize));
-			if (rs != 0) {
-				syslog(LOG_CRIT, "cannot set socket size for routes: %d", errno);
-				exit(rs);
-			}
-			RTPolling = boost::thread(&rtnl_listen, &rth, &RTPollingCb, this);
-			break;
-		}
-		case RS_FPM: {
-			FPMServer *fpm = new FPMServer(this);
-			RTPolling = boost::thread(*fpm);
-			syslog(LOG_NOTICE, "FPM interface enabled");
-			break;
-		}
-		default: {
-			syslog(LOG_CRIT, "Invalid route source specified. Disabling route updates.");
-			break;
-		}
-	}
+    switch (this->source) {
+        case RS_NETLINK: {
+            initNLListener();
+            break;
+        }
+        default: {
+            syslog(LOG_CRIT, "Invalid route source specified. Disabling route updates.");
+            break;
+        }
+    }
 
     GWResolver = boost::thread(&FlowTable::GWResolverCb, this);
     GWResolver.join();
@@ -275,37 +253,31 @@ void FlowTable::GWResolverCb(FlowTable *ft) {
                     break;
             }
         }
-        if (ft->unresolvedRoutes.size() > 0) {
-            set<string> resolvedRoutes;
-            set<string>::iterator it;
-            uint64_t gatewaysResolved = 0;
-            for (it = ft->unresolvedRoutes.begin(); it != ft->unresolvedRoutes.end(); ++it) {
-                const RouteEntry& re = ft->routeTable[*it];
-                const string addr_str = re.address.toString();
-                const string mask_str = re.netmask.toString();
-                const string gw_str = re.gateway.toString();
-                if (ft->findHost(re.gateway) == MAC_ADDR_NONE) {
-                    syslog(LOG_DEBUG,
-                          "Still cannot resolve gateway %s, will retry route %s/%s",
-                          gw_str.c_str(), addr_str.c_str(), mask_str.c_str());
-                    ft->resolveGateway(re.gateway, re.interface);
-                } else {
-                    syslog(LOG_DEBUG,
-                           "Adding previously unresolved route %s/%s via %s",
-                           addr_str.c_str(), mask_str.c_str(), gw_str.c_str());
-                    ft->sendToHw(RMT_ADD, re);
-                    resolvedRoutes.insert(*it);
-                    ++gatewaysResolved;
-                }
+
+        set<string> resolvedRoutes;
+        set<string>::iterator it;
+        for (it = ft->unresolvedRoutes.begin(); it != ft->unresolvedRoutes.end(); ++it) {
+            const RouteEntry& re = ft->routeTable[*it];
+            const string addr_str = re.address.toString();
+            const string mask_str = re.netmask.toString();
+            const string gw_str = re.gateway.toString();
+            if (ft->findHost(re.gateway) == MAC_ADDR_NONE) {
+                syslog(LOG_DEBUG,
+                       "Still cannot resolve gateway %s, will retry route %s/%s",
+                       gw_str.c_str(), addr_str.c_str(), mask_str.c_str());
+                ft->resolveGateway(re.gateway, re.interface);
+            } else {
+                syslog(LOG_DEBUG,
+                       "Adding previously unresolved route %s/%s via %s",
+                       addr_str.c_str(), mask_str.c_str(), gw_str.c_str());
+                ft->sendToHw(RMT_ADD, re);
+                resolvedRoutes.insert(*it);
             }
-            if (gatewaysResolved) {
-                for (it = resolvedRoutes.begin(); it != resolvedRoutes.end(); ++it) {
-                    ft->unresolvedRoutes.erase(*it);    
-                }
-            }
-        } else {
-            usleep(1000);
-        } 
+        }
+        for (it = resolvedRoutes.begin(); it != resolvedRoutes.end(); ++it) {
+            ft->unresolvedRoutes.erase(*it);
+        }
+        usleep(100);
     }
 }
 
