@@ -133,7 +133,7 @@ auto eth2
 iface eth2 inet static
 address 10.0.0.$i
 netmask 255.255.255.0
-up route add -net 172.16.$i.0 netmask 255.255.255.0 gw 10.0.0.$j
+up route add -net 172.16.$j.0 netmask 255.255.255.0 gw 10.0.0.$j
 EOF
 		i=$(($i+1))
 		j=$(($j-1))
