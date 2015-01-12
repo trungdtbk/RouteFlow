@@ -713,13 +713,22 @@ void FlowTable::flushRouteMod(Interface& iface) {
 	map<string, HostEntry>::iterator h_it;
 	for (h_it = this->hostTable.begin(); h_it != this->hostTable.end(); h_it++) {
 		HostEntry& hentry = h_it->second;
+		syslog(LOG_INFO, "debug: read a hostentry Ip:%s, Mac:%s, int:%s",
+				hentry.address.toString().c_str(),
+				hentry.hwaddress.toString().c_str(),
+				hentry.interface.toString().c_str());
 		if (hentry.interface == iface)
 			this->sendToHw(RMT_ADD, hentry);
 	}
 	map<string, RouteEntry>::iterator r_it;
 	for (r_it = this->routeTable.begin(); r_it != this->routeTable.end(); ++r_it) {
 		RouteEntry& rentry = r_it->second;
+		syslog(LOG_INFO, "debug: read a routeentry Ip:%s, Mac:%s, int:%s",
+						rentry.address.toString().c_str(),
+						rentry.hwaddress.toString().c_str(),
+						rentry.interface.toString().c_str());
 		if (rentry.interface == iface)
+			syslog(LOG_INFO, "debug: send a routemod");
 			this->sendToHw(RMT_ADD, r_it->second);
 	}
 }
