@@ -709,7 +709,7 @@ int FlowTable::sendToHw(RouteModType mod, const IPAddress& addr,
 }
 
 void FlowTable::flushRouteMod(Interface& iface) {
-	syslog(LOG_INFO, "debug: Interface %s", iface.toString());
+	syslog(LOG_INFO, "debug: Interface %s", iface.toString().c_str());
 	map<string, HostEntry>::iterator h_it;
 	for (h_it = this->hostTable.begin(); h_it != this->hostTable.end(); h_it++) {
 		HostEntry& hentry = h_it->second;
