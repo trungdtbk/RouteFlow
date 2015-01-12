@@ -63,7 +63,8 @@ PCT_MAP_REQUEST = 0     # (deprecated) Request for a mapping packet.
 PCT_RESET = 1           # Reset the client port to inactive.
 PCT_MAP_SUCCESS = 2     # Mapping was successful; port can be brought up.
 PCT_ROUTEMOD_ACK = 3
-
+PCT_FLUSH_REQ = 4       # Request the client to send RouteMod from HostTable & RouteTable
+                        # It is used to update flow table when mapping config changes
 PC_MAP = 0
 PC_RESET = 1
 

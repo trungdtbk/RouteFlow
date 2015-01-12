@@ -259,6 +259,10 @@ void RFClient::sendAllInterfaceToControllerRouteMods(uint32_t vm_port) {
         if (iface.port == vm_port) {
             iface.active = true;
             sendInterfaceToControllerRouteMods(iface);
+            /* We're gonna to send all available entries from the host & route table
+             * as well. That will update hardware table without waiting for ARP request
+             * from hosts */
+            this->flowTable->flushRouteMod(iface);
         }
     }
 }

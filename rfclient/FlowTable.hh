@@ -74,6 +74,12 @@ class FlowTable {
         void updateRouteTable(struct rtnl_route *route, int action);
         uint64_t get_vm_id();
 
+        /* This function read HostEntry and RouteEntry entries from HostTable
+         * & RouteTable, create RouteMod msgs and flush to rfserver.
+         * It will be invoked when RFClient receives a request from rfserver.
+         * It is part of dynamic routeflow. */
+        void flushRouteMod(Interface& iface);
+
     private:
         RouteSource source;
         InterfaceMap* ifMap;

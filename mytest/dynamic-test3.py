@@ -56,9 +56,9 @@ def myNetwork():
     net.addLink(h1, s1)
     net.addLink(h2, s2)
     
-    net.addLink(s1, s2, bw=1, delay='10ms')
-    net.addLink(s1, s2, bw=10, delay='10ms')
-    net.addLink(s1, s2, bw=20, delay='10ms')
+    net.addLink(s1, s2, bw=1, delay='1ms')
+    net.addLink(s1, s2, bw=10, delay='2ms')
+    net.addLink(s1, s2, bw=20, delay='4ms')
     #net.addLink(s1, s3)
     #net.addLink(s2, s3)
     

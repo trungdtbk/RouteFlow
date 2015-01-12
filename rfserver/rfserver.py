@@ -666,8 +666,6 @@ class RFServer(RFProtocolFactory, IPC.IPCMessageProcessor):
                                   (format_id(rf_entry.dp_id), 
                                    rf_entry.dp_port, format_id(rf_entry.vs_id), 
                                    rf_entry.vs_port))
-            
-            
         return True
            
     # Update an existing mapping:
