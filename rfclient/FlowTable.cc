@@ -725,7 +725,7 @@ void FlowTable::flushRouteMod(Interface& iface) {
 		RouteEntry& rentry = r_it->second;
 		syslog(LOG_INFO, "debug: read a routeentry Ip:%s, Mac:%s, int:%s",
 						rentry.address.toString().c_str(),
-						rentry.hwaddress.toString().c_str(),
+						rentry.gateway.toString().c_str(),
 						rentry.interface.toString().c_str());
 		if (rentry.interface == iface)
 			syslog(LOG_INFO, "debug: send a routemod");
