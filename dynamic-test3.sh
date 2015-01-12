@@ -111,6 +111,7 @@ start_ovs() {
 
 start_rfvms() {
 	i=1
+	j=2
 	for vm in rfvmA rfvmB; do
 		ROOTFS=$LXCDIR/$vm/rootfs
 
@@ -120,8 +121,8 @@ password 123
 enable password 123
 !
 router ospf
-        network 172.16.0.0/12 area 0
-        network 10.0.0.0/8 area 0
+	network 172.16.0.0/12 area 0
+	network 10.0.0.0/8 area 0
 	passive-interface eth1
 
 log file /var/log/quagga/ospfd.log
@@ -131,8 +132,8 @@ interface eth1
 	ip ospf dead-interval 4
 
 interface eth2
-        ip ospf hello-interval 1
-        ip ospf dead-interval 4
+	ip ospf hello-interval 1
+	ip ospf dead-interval 4
 !
 EOF
 		cat > $ROOTFS/etc/quagga/zebra.conf <<EOF
@@ -142,12 +143,12 @@ enable password 123
 log file /var/log/quagga/zebra.log
 !
 interface eth1
-        ip address 172.16.$i.1/24
+	ip address 172.16.$i.1/24
 !
 interface eth2
-        ip address 10.0.0.$i/24
+	ip address 10.0.0.$i/24
 
-!ip route 172.16.2.0 255.255.255.0 10.0.0.2
+ip route 172.16.$j.0 255.255.255.0 10.0.0.$j
 EOF
 		# Prepare configs for LXCs
 		cat > $ROOTFS/etc/network/interfaces <<EOF
@@ -159,6 +160,7 @@ address 192.168.10.10$i
 netmask 255.255.255.0
 EOF
 		i=$(($i+1))
+		j=$(($j-1))
 		cat > $ROOTFS/etc/rc.local <<EOF
 /root/run_rfclient.sh &
 exit 0
@@ -230,12 +232,9 @@ if [ "$ACTION" != "RESET" ]; then
         
         cp /dev/null $RFSERVERINTERNAL
         echo "vm_id,ct_id,dp_id,dp_port,eth_addr,rem_ct,rem_id,rem_port,rem_eth_addr" > $RFSERVERINTERNAL
-		#echo 0x2a0a0a0a0a0,0,0x01,2,02:a1:a1:a1:a1:a1,0,0x02,2,02:a2:a2:a2:a2:a2 >> $RFSERVERINTERNAL
-		
+		#echo 0x2a0a0a0a0a0,0,0x01,2,02:a1:a1:a1:a1:a1,0,0x02,2,02:a2:a2:a2:a2:a2 >> $RFSERVERINTERNAL	
 		#echo 0x2b0b0b0b0b0,0,0x01,3,02:b1:b1:b1:b1:b1,0,0x02,3,02:b2:b2:b2:b2:b2 >> $RFSERVERINTERNAL
-		
 		#echo 0x2c0c0c0c0c0,0,0x01,4,02:c1:c1:c1:c1:c1,0,0x02,4,02:c2:c2:c2:c2:c2 >> $RFSERVERINTERNAL
-		
 		#echo 0x2d0d0d0d0d0,0,0x01,5,02:d1:d1:d1:d1:d1,0,0x03,1,02:d2:d2:d2:d2:d2 >> $RFSERVERINTERNAL
 		#echo 0x2d0d0d0d0d0,0,0x03,2,02:d1:d1:d1:d1:d1,0,0x02,5,02:d2:d2:d2:d2:d2 >> $RFSERVERINTERNAL
     fi

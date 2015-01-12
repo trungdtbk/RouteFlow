@@ -99,15 +99,17 @@ def first_test(rfserver, net):
     for entry in config:
         rfserver.add_map_config(entry['vm_id'], entry['vm_port'], 
                                 0, entry['dp_id'], entry['dp_port'])
-    
+    # The ping cmd is used to generate ARP request. We need flow entries to exist before
+    # iperf runs
     net.get('h1').cmd('ping -c 1 172.16.1.1')
     net.get('h2').cmd('ping -c 1 172.16.2.1')
+    
     info('Wait for flow entries installation completed...\n')
     time.sleep(10)
-    #info(net.iperf())
+    info(net.iperf())
     info('\n')
-    #rfserver.delete_map_configs(config[0]['vm_id'])
-    #rfserver.delete_map_configs(config[1]['vm_id'])
+    rfserver.delete_map_configs(config[0]['vm_id'])
+    rfserver.delete_map_configs(config[1]['vm_id'])
     info('Test completed')
             
 def second_test(rfserver, net):
@@ -120,8 +122,6 @@ def second_test(rfserver, net):
         rfserver.add_map_config(entry['vm_id'], entry['vm_port'], 
                                 0, entry['dp_id'], entry['dp_port'])
     
-    net.get('h1').cmd('ping -c 1 172.16.1.1')
-    net.get('h2').cmd('ping -c 1 172.16.2.1')
     info('Wait for flow entries installation completed...\n')
     time.sleep(10)
     info(net.iperf())
@@ -139,9 +139,7 @@ def third_test(rfserver, net):
     for entry in config:
         rfserver.add_map_config(entry['vm_id'], entry['vm_port'], 
                                 0, entry['dp_id'], entry['dp_port'])
-    
-    net.get('h1').cmd('ping -c 1 172.16.1.1')
-    net.get('h2').cmd('ping -c 1 172.16.2.1')
+        
     info('Wait for flow entries installation completed...\n')
     time.sleep(10)
     info(net.iperf())
