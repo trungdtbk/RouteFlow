@@ -111,9 +111,44 @@ start_ovs() {
 
 start_rfvms() {
 	i=1
-	j=2
 	for vm in rfvmA rfvmB; do
 		ROOTFS=$LXCDIR/$vm/rootfs
+
+		# Quagga ospf configuration
+		cat > $ROOTFS/etc/quagga/ospfd.conf <<EOF
+password 123
+enable password 123
+!
+router ospf
+        network 172.16.0.0/12 area 0
+        network 10.0.0.0/8 area 0
+	passive-interface eth1
+
+log file /var/log/quagga/ospfd.log
+!
+interface eth1
+	ip ospf hello-interval 1
+	ip ospf dead-interval 4
+
+interface eth2
+        ip ospf hello-interval 1
+        ip ospf dead-interval 4
+!
+EOF
+		cat > $ROOTFS/etc/quagga/zebra.conf <<EOF
+password 123
+enable password 123
+!
+log file /var/log/quagga/zebra.log
+!
+interface eth1
+        ip address 172.16.$i.1/24
+!
+interface eth2
+        ip address 10.0.0.$i/24
+
+!ip route 172.16.2.0 255.255.255.0 10.0.0.2
+EOF
 		# Prepare configs for LXCs
 		cat > $ROOTFS/etc/network/interfaces <<EOF
 auto lo
@@ -123,20 +158,7 @@ iface eth0 inet static
 address 192.168.10.10$i
 netmask 255.255.255.0
 EOF
-		cat >> $ROOTFS/etc/network/interfaces<<EOF
-auto eth1
-iface eth1 inet static
-address 172.16.$i.1
-netmask 255.255.255.0
-		
-auto eth2
-iface eth2 inet static
-address 10.0.0.$i
-netmask 255.255.255.0
-up route add -net 172.16.$j.0 netmask 255.255.255.0 gw 10.0.0.$j
-EOF
 		i=$(($i+1))
-		j=$(($j-1))
 		cat > $ROOTFS/etc/rc.local <<EOF
 /root/run_rfclient.sh &
 exit 0
