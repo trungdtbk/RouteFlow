@@ -218,6 +218,7 @@ void FlowTable::GWResolverCb(FlowTable *ft) {
                               addr_str.c_str());
                     } else {
                         ft->routeTable.insert(make_pair(re_key, re));
+                        syslog(LOG_INFO, "debug: RouteTable size %d", ft->routeTable.size());
                         if (ft->findHost(re.gateway) == MAC_ADDR_NONE) {
                             syslog(LOG_ERR,
                                    "Cannot resolve gateway %s, will retry route %s/%s",
@@ -713,7 +714,7 @@ int FlowTable::sendToHw(RouteModType mod, const IPAddress& addr,
 
 void FlowTable::flushRouteMod(Interface& iface) {
 	boost::lock_guard<boost::mutex> lock(hostTableMutex);
-	syslog(LOG_INFO, "debug: HostTable size %d, ht_addr=%p, ft_add=%p", hostTable.size(), &hostTable, this);
+	syslog(LOG_INFO, "debug: HostTable size %d", hostTable.size());
 	syslog(LOG_INFO, "debug: Interface %s", iface.toString().c_str());
 	map<string, HostEntry>::iterator h_it;
 	for (h_it = hostTable.begin(); h_it != hostTable.end(); h_it++) {
@@ -727,10 +728,11 @@ void FlowTable::flushRouteMod(Interface& iface) {
 		}
 	}
 	map<string, RouteEntry>::iterator r_it;
-	for (r_it = this->routeTable.begin(); r_it != this->routeTable.end(); ++r_it) {
+	syslog(LOG_INFO, "debug: RouteTable size %d", routeTable.size());
+	for (r_it = routeTable.begin(); r_it != routeTable.end(); r_it++) {
 		RouteEntry& rentry = r_it->second;
 		if (rentry.interface == iface) {
-			this->sendToHw(RMT_ADD, r_it->second);
+			this->sendToHw(RMT_ADD, rentry);
 			syslog(LOG_INFO, "debug: read a routeentry Ip:%s, Mac:%s, int:%s",
 					rentry.address.toString().c_str(),
 					rentry.gateway.toString().c_str(),
