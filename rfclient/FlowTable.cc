@@ -589,7 +589,7 @@ int FlowTable::resolveGateway(const IPAddress& gateway,
     }
 
     // Otherwise, we should go ahead and begin the process.
-    syslog(LOG_DEBUG, "starting neighbour discovery for %s", gateway_str.c_str());
+    syslog(LOG_INFO, "starting neighbour discovery for %s", gateway_str.c_str());
     int sock = initiateND(gateway_str.c_str());
     if (sock == -1) {
         return -1;
