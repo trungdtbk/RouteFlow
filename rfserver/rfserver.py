@@ -1061,14 +1061,12 @@ class RFServer(RFProtocolFactory, IPC.IPCMessageProcessor):
         # Disable this code portion for now, because it causes an issue with dp 
         # comming back from a reset (when restart Mininet, no flow entries are 
         # installed
-        """
         entry = self.vmporttable.get_vm_port_info(vm_id = vm_id, vm_port = vm_port)
         if entry is not None:
             entry.update_vs(vs_id=vs_id, vs_port=vs_port)
             self.vmporttable.set_entry(entry)
             #TODO: Because we keep VS info, so no need RFClient to send this msg anymore
             # When register dp port, we can get vm and vs info to update rftable
-        """
         entry = None
         entry = self.rftable.get_entry_by_vm_port(vm_id, vm_port)
         if entry is not None and entry.get_status() == RFENTRY_ASSOCIATED:
