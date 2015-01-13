@@ -124,6 +124,8 @@ void FlowTable::initNLListener() {
     syslog(LOG_NOTICE, "Netlink interface enabled");
     sock = nl_socket_alloc();
 
+    syslog(LOG_INFO, "Inside flowtable class addr=%p", this); 
+
     err = nl_cache_mngr_alloc(sock, NETLINK_ROUTE, 0, &mngr);
     if (err < 0) {
         throw "some kind of problem with the route cache manager!";
@@ -391,6 +393,7 @@ void FlowTable::updateHostTable(struct rtnl_neigh *neigh,
                 // Add to host table
                 boost::lock_guard<boost::mutex> lock(hostTableMutex);
                 this->hostTable[host] = *hentry;
+		syslog(LOG_INFO, "HostTable size %d, addr=%p", this->hostTable.size(), &this->hostTable);
             }
             // If we have been attempting neighbour discovery for this
             // host, then we can close the associated socket.
@@ -709,9 +712,11 @@ int FlowTable::sendToHw(RouteModType mod, const IPAddress& addr,
 }
 
 void FlowTable::flushRouteMod(Interface& iface) {
+	boost::lock_guard<boost::mutex> lock(hostTableMutex);
+	syslog(LOG_INFO, "debug: HostTable size %d, ht_addr=%p, ft_add=%p", hostTable.size(), &hostTable, this);
 	syslog(LOG_INFO, "debug: Interface %s", iface.toString().c_str());
 	map<string, HostEntry>::iterator h_it;
-	for (h_it = this->hostTable.begin(); h_it != this->hostTable.end(); h_it++) {
+	for (h_it = hostTable.begin(); h_it != hostTable.end(); h_it++) {
 		HostEntry& hentry = h_it->second;
 		syslog(LOG_INFO, "debug: read a hostentry Ip:%s, Mac:%s, int:%s",
 				hentry.address.toString().c_str(),

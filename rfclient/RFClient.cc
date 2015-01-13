@@ -157,7 +157,7 @@ RFClient::RFClient(uint64_t id, const string &address, RouteSource source) {
 
 void RFClient::startFlowTable(RouteSource source) {
     this->flowTable = new FlowTable(this->id, this, &(this->rm_q), source);
-    boost::thread t(*this->flowTable);
+    boost::thread t(boost::ref(*this->flowTable));
     t.detach();
 }
 

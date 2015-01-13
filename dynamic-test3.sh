@@ -192,6 +192,7 @@ stop_rfvms() {
     	lxc-stop -n $vm &> /dev/null;
     	ROOTFS=$LXCDIR/$vm/rootfs
     	rm -rf $ROOTFS/var/run/network/ifstate;
+	cp /dev/null $ROOTFS/var/log/syslog
     done
 }
 
@@ -227,8 +228,10 @@ if [ "$ACTION" != "RESET" ]; then
         
         # Initially, rfvmA is mapped the port1 to dp1, port1
 		# & port2 to dp2, port1
-        #echo 0x2a0a0a0a0a0,1,0,0x01,1 >> $RFSERVERCONFIG
-        #echo 0x2a0a0a0a0a0,2,0,0x02,1 >> $RFSERVERCONFIG
+        echo 0x2a0a0a0a0a0,1,0,0x01,1 >> $RFSERVERCONFIG
+        echo 0x2a0a0a0a0a0,2,0,0x01,2 >> $RFSERVERCONFIG
+        echo 0x2b0b0b0b0b0,1,0,0x02,1 >> $RFSERVERCONFIG
+        echo 0x2b0b0b0b0b0,2,0,0x02,2 >> $RFSERVERCONFIG
         
         cp /dev/null $RFSERVERINTERNAL
         echo "vm_id,ct_id,dp_id,dp_port,eth_addr,rem_ct,rem_id,rem_port,rem_eth_addr" > $RFSERVERINTERNAL
