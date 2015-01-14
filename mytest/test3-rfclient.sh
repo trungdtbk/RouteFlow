@@ -195,7 +195,7 @@ reset() {
 reset 1
 trap "reset 0; exit 0" INT
 
-if [ "$ACTION" == "RESET" ]; then
+if [ "$ACTION" != "RESET" ]; then
     echo_bold "-> Starting the management network ($RFBR)..."
     add_local_br $RFBR
     ifconfig $RFBR $HOSTVMIP
