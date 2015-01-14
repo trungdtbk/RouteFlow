@@ -107,13 +107,11 @@ router ospf
 	network 172.16.0.0/12 area 0
 	network 10.0.0.0/8 area 0
 	passive-interface eth1
-
 log file /var/log/quagga/ospfd.log
 !
 interface eth1
 	ip ospf hello-interval 1
 	ip ospf dead-interval 4
-
 interface eth2
 	ip ospf hello-interval 1
 	ip ospf dead-interval 4
@@ -130,7 +128,6 @@ interface eth1
 !
 interface eth2
 	ip address 10.0.0.$i/24
-
 ip route 172.16.$j.0 255.255.255.0 10.0.0.$j
 EOF
 		# Prepare configs for LXCs
@@ -198,7 +195,7 @@ reset() {
 reset 1
 trap "reset 0; exit 0" INT
 
-if [ "$ACTION" != "RESET" ]; then
+if [ "$ACTION" == "start" ]; then
     echo_bold "-> Starting the management network ($RFBR)..."
     add_local_br $RFBR
     ifconfig $RFBR $HOSTVMIP
