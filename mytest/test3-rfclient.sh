@@ -21,8 +21,8 @@ fi
 
 ACTION=""
 case "$1" in
---ryu)
-    ACTION="RYU"
+--start)
+    ACTION="START"
     ;;
 --reset)
     ACTION="RESET"
@@ -195,7 +195,7 @@ reset() {
 reset 1
 trap "reset 0; exit 0" INT
 
-if [ "$ACTION" == "start" ]; then
+if [ "$ACTION" == "RESET" ]; then
     echo_bold "-> Starting the management network ($RFBR)..."
     add_local_br $RFBR
     ifconfig $RFBR $HOSTVMIP
