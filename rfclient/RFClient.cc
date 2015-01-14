@@ -94,7 +94,10 @@ bool RFClient::findInterface(const char *ifName, Interface *dst) {
         return false;
     }
 
-    *dst = it->second;
+    /* We should assign the pointer instead of value. So FlowTable threads will get
+     * the up-to-date value. Try to fix it this way */
+    //*dst = it->second;
+    dst = &it->second;
     return true;
 }
 
@@ -263,6 +266,7 @@ void RFClient::sendAllInterfaceToControllerRouteMods(uint32_t vm_port) {
              * as well. That will update hardware table without waiting for ARP request
              * from hosts */
             this->flowTable->flushRouteMod(iface);
+            break;
         }
     }
 }
