@@ -13,18 +13,28 @@ VSCTL="ovs-vsctl"
 OFCTL="ovs-ofctl -O$OFP"
 OFP=OpenFlow13
 CONTROLLER_PORT=6633
-ACTION=""
-while getopts ":a:p:d" opt; do
-  case $opt in
-    a) p_out="$OPTARG"
-    ;;
-    p) arg_1="$OPTARG"
-    ;;
-    \?) echo "Invalid option -$OPTARG" >&2
-    ;;
-  esac
-done
 
+if [ "$EUID" != "0" ]; then
+  echo "You must be root to run this script."
+  exit 1
+fi
+
+ACTION=""
+case "$1" in
+--ryu)
+    ACTION="RYU"
+    ;;
+--reset)
+    ACTION="RESET"
+    ;;
+*)
+    echo "Invalid argument: $1"
+    echo "Options: "
+    echo "    --ryu: run using RYU"
+    echo "    --reset: stop running and clear data from previous executions"
+    exit
+    ;;
+esac
 cd $RF_HOME
 wait_port_listen() {
     port=$1
@@ -188,7 +198,7 @@ reset() {
 reset 1
 trap "reset 0; exit 0" INT
 
-if [ "$ACTION" == "START" ]; then
+if [ "$ACTION" != "RESET" ]; then
     echo_bold "-> Starting the management network ($RFBR)..."
     add_local_br $RFBR
     ifconfig $RFBR $HOSTVMIP
