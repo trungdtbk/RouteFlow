@@ -61,6 +61,9 @@ PCT_RESET = 1           # Reset the client port to inactive.
 PCT_MAP_SUCCESS = 2     # Mapping was successful; port can be brought up.
 PCT_ROUTEMOD_ACK = 3
 
+# Dataplane Configuration Types, for supporting dynamic map
+DCT_MAP_ADD = 0
+DCT_MAP_DELETE = 1
 PC_MAP = 0
 PC_RESET = 1
 

@@ -24,6 +24,8 @@ from rflib.types.Option import *
 
 from rftable import *
 
+from rfserverrpc import RFServerRPC
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s %(name)-15s %(levelname)-8s %(message)s',
@@ -494,7 +496,12 @@ class RFServer(RFProtocolFactory, IPC.IPCMessageProcessor):
         # Initialise state tables
         self.rftable = RFTable()
         self.isltable = RFISLTable()
-
+        
+        # Keep info about LXCs' ports and switches' ports in the tables & use it
+        # to create the new associations as the user requests 
+        self.vmporttable = RFVMPortTable()
+        self.dpporttable = RFDPPortTable()
+        
         self.route_mod_translator = {}
 
         # Logging
@@ -518,7 +525,7 @@ class RFServer(RFProtocolFactory, IPC.IPCMessageProcessor):
         self.worker.start()
 
         self.ipc.listen(RFCLIENT_RFSERVER_CHANNEL, self, self, False)
-        self.ipc.listen(RFSERVER_RFPROXY_CHANNEL, self, self, True)
+        self.ipc.listen(RFSERVER_RFPROXY_CHANNEL, self, self, False)
 
     def ipc_send(self, channel, channel_id, msg):
         self.ipc_lock.acquire()
@@ -560,6 +567,17 @@ class RFServer(RFProtocolFactory, IPC.IPCMessageProcessor):
 
     # Port register methods
     def register_vm_port(self, vm_id, vm_port, eth_addr):
+        entry = self.vmporttable.get_vm_port_info(vm_id=vm_id, vm_port=vm_port)
+        if entry is not None:
+            entry.update_eth_addr(eth_addr = eth_addr)
+            entry.update_vs(vs_id=None, vs_port=None)
+        else:
+            entry = RFVMPortEntry(vm_id=vm_id, vm_port=vm_port, eth_addr=eth_addr)
+        
+        self.vmporttable.set_entry(entry)
+        self.log.info("Updating vm port table (vm_id=%s, vm, vm_port=%i, eth_addr=%s)"
+                      % (format(vm_id), vm_port, eth_addr))
+        entry = None
         action = None
         config_entry = self.config.get_config_for_vm_port(vm_id, vm_port)
         if config_entry is None:
@@ -655,6 +673,16 @@ class RFServer(RFProtocolFactory, IPC.IPCMessageProcessor):
         if stop:
             return
 
+        entry = self.dpporttable.get_dp_port_info(ct_id=ct_id, 
+                                                  dp_id=dp_id, 
+                                                  dp_port=dp_port)
+        if entry is None:
+            entry = RFDPPortEntry(ct_id = ct_id, dp_id = dp_id, dp_port = dp_port)
+            self.dpporttable.set_entry(entry)
+            sys.log.debug("Update DPPortTable with ct_id=%s, dp_id=%s, dp_port=%d" 
+                          % (format_id(ct_id), format_id(dp_id), dp_port))
+            entry = None
+            
         # The logic down here is pretty much the same as register_vm_port
         action = None
         config_entry = self.config.get_config_for_dp_port(ct_id, dp_id,
@@ -771,6 +799,8 @@ class RFServer(RFProtocolFactory, IPC.IPCMessageProcessor):
             return False
     # DatapathDown methods
     def set_dp_down(self, ct_id, dp_id):
+        for entry in self.dpporttable.get_entries(dp_id=dp_id):
+            self.dpporttable.remove_entry(entry)
         for entry in self.rftable.get_dp_entries(ct_id, dp_id):
             # For every port registered in that datapath, put it down
             self.set_dp_port_down(entry.ct_id, entry.dp_id, entry.dp_port)
@@ -806,6 +836,11 @@ class RFServer(RFProtocolFactory, IPC.IPCMessageProcessor):
 
     # PortMap methods
     def map_port(self, vm_id, vm_port, vs_id, vs_port):
+        entry = self.vmporttable.get_vm_port_info(vm_id, vm_port)
+        if entry is not None:
+            entry.update_vs(vs_id=vs_id, vs_port=vs_port)
+            self.vmporttable.set_entry(entry)
+        entry = None    
         entry = self.rftable.get_entry_by_vm_port(vm_id, vm_port)
         if entry is not None and entry.get_status() == RFENTRY_ASSOCIATED:
             # If the association is valid, activate it
@@ -824,6 +859,147 @@ class RFServer(RFProtocolFactory, IPC.IPCMessageProcessor):
                           (format_id(entry.vm_id), entry.vm_port,
                            format_id(entry.dp_id), entry.dp_port,
                            format_id(entry.vs_id), entry.vs_port))
+    
+    # Delete mapping configs from CONFIG table & also RFTable if the associations
+    # exist.
+    #TODO: include deleting associated entries from the switch's flow table as well
+    def delete_map_configs(self, **kwargs):
+        cf_entries = self.config.get_entries(**kwargs)
+        for cf_entry in cf_entries:
+            self.config.remove_entry(cf_entry)
+            rf_entry = self.rftable.get_entry_by_vm_port(cf_entry.vm_id, 
+                                                         cf_entry.vm_port)
+            if rf_entry is None:
+                rf_entry = self.rftable.get_entry_by_dp_port(cf_entry.dp_id,
+                                                             cf_entry.dp_port)
+            if rf_entry is not None:
+                self.rftable.remove_entry(rf_entry)
+                if rf_entry.get_status() == RFENTRY_ACTIVE:
+                    msg = DataPlaneMap(ct_id=rf_entry.ct_id,
+                                       dp_id=rf_entry.dp_id, 
+                                       dp_port=rf_entry.dp_port,
+                                       vs_id=rf_entry.vs_id, 
+                                       vs_port=rf_entry.vs_port, 
+                                       operation_id=DCT_MAP_DELETE)
+                    self.ipc.send(RFSERVER_RFPROXY_CHANNEL, 
+                                  str(rf_entry.ct_id), msg)
+                    self.log.info("Resetting RFProxy map table \
+                    (dp_id=%s, dp_port=%i) - (vs_id=%s, vs_port=%i)" %
+                                  (format_id(rf_entry.dp_id), 
+                                   rf_entry.dp_port, format_id(rf_entry.vs_id), 
+                                   rf_entry.vs_port))
+                    
+                    self.ipc.send(RFCLIENT_RFSERVER_CHANNEL, str(rf_entry.vm_id), 
+                                  PortConfig(vm_id=rf_entry.vm_id, 
+                                             vm_port=rf_entry.vm_port, 
+                                             operation_id=PCT_RESET))
+                    self.log.info("Resetting client port (vm_id=%s, vm_port=%i)" % 
+                                  (format_id(rf_entry.vm_id), rf_entry.vm_port))
+            
+            self.log.info("Successfully deleted a mapping (vm_id=%s, \
+            vm_port=%i) - (dp_id=%s, dp_port=%i" % (format_id(cf_entry.vm_id), 
+                                                    cf_entry.vm_port, 
+                                                    format_id(cf_entry.dp_id), 
+                                                    cf_entry.dp_port))
+        return len(cf_entries)
+    
+    # Add a mapping between a VM port & DP port
+    def add_map_config(self, vm_id, vm_port, ct_id, dp_id, dp_port):
+        if vm_id is None or vm_port is None or \
+        dp_id is None or dp_port is None or ct_id is None:
+            return False
+        
+        vm_port_conf = self.config.get_config_for_vm_port(vm_id=vm_id, 
+                                                          vm_port=vm_port)
+        dp_port_conf = self.config.get_config_for_dp_port(ct_id=ct_id, 
+                                                          dp_id=dp_id, 
+                                                          dp_port=dp_port)
+        if vm_port_conf is not None or dp_port_conf is not None:
+            return False # Can't map in-use ones
+        
+        cf_entry = RFConfigEntry(vm_id=vm_id, vm_port=vm_port,
+                                 ct_id=ct_id, dp_id=dp_id, dp_port=dp_port)
+        self.config.set_entry(cf_entry)
+    
+        vm_port_info = self.vmporttable.get_vm_port_info(vm_id=vm_id, 
+                                                         vm_port=vm_port)
+        dp_port_info = self.dpporttable.get_dp_port_info(ct_id=ct_id, 
+                                                         dp_id=dp_id, 
+                                                         dp_port=dp_port)
+        if vm_port_info is None and dp_port_info is None:
+            return True
+        
+        rf_entry = RFEntry()
+        if vm_port_info is not None:
+            rf_entry.update_vm_port(vm_id=vm_id, vm_port=vm_port,
+                                        vs_id=vm_port_info.vs_id, 
+                                        vs_port=vm_port_info.vs_port,
+                                        eth_addr=vm_port_info.eth_addr)
+            
+        if dp_port_info is not None:
+            rf_entry.update_dp_port(dp_id=dp_id, dp_port=dp_port, ct_id=ct_id)
+        
+        self.rftable.set_entry(rf_entry)
+        
+        if rf_entry.get_status() == RFENTRY_ACTIVE:
+            msg = DataPlaneMap(ct_id=rf_entry.ct_id, 
+                                          dp_id=rf_entry.dp_id,
+                                          dp_port=rf_entry.dp_port, 
+                                          vs_id=rf_entry.vs_id,
+                                          vs_port=rf_entry.vs_port, 
+                                          operation_id=DCT_MAP_ADD)
+            self.ipc.send(RFSERVER_RFPROXY_CHANNEL, str(rf_entry.ct_id), msg)
+            
+            msg = PortConfig(vm_id=rf_entry.vm_id, vm_port=rf_entry.vm_port,
+                             operation_id=PCT_MAP_SUCCESS)
+            self.ipc.send(RFCLIENT_RFSERVER_CHANNEL, str(rf_entry.vm_id), msg)
+            
+            self.log.info("Successfully map between (vm_id=%s, vm_port=%d) - \
+                    (dp_id=%s, dp_port=%d)" %
+                                  (format_id(rf_entry.vm_id), 
+                                   rf_entry.vm_port, format_id(rf_entry.dp_id), 
+                                   rf_entry.dp_port))
+        return True
+           
+    # Update an existing mapping:
+    # change the mapping of a vm_port to another dp_port
+    # or change the mapping of dp_port to another vm_port
+    def update_map_config(self, vm_id, vm_port, ct_id, dp_id, dp_port):       
+        if vm_id is None or vm_port is None \
+        or dp_id is None or dp_port is None or ct_id is None:
+            return False
+        
+        vm_port_conf = self.config.get_config_for_vm_port(vm_id=vm_id, 
+                                                          vm_port=vm_port)       
+        dp_port_conf = self.config.get_config_for_dp_port(ct_id=ct_id, 
+                                                          dp_id=dp_id, 
+                                                          dp_port=dp_port)
+        if vm_port_conf is not None and dp_port_conf is not None:
+            return False # Both are in used, can't update
+             
+        if vm_port_conf is not None: # Map the vm_port to a new dp_port
+            # Delete the existing mapping first
+            if self.delete_map_configs(vm_id=vm_port_conf.vm_id, 
+                                    vm_port=vm_port_conf.vm_port,
+                                    ct_id=vm_port_conf.ct_id,
+                                    dp_id=vm_port_conf.dp_id,
+                                    dp_port=vm_port_conf.dp_port):
+                pass
+            else:
+                return False
+        
+        if dp_port_conf is not None: # Map the dp_port to a new vm_port
+            # Delete the existing mapping first
+            if self.delete_map_configs(vm_id=dp_port_conf.vm_id, 
+                                    vm_port=dp_port_conf.vm_port,
+                                    ct_id=dp_port_conf.ct_id,
+                                    dp_id=dp_port_conf.dp_id,
+                                    dp_port=dp_port_conf.dp_port):             
+                pass
+            else:
+                return False
+        self.add_map_config(vm_id, vm_port, ct_id, dp_id, dp_port)
+        return True
 
 if __name__ == "__main__":
     description = 'RFServer co-ordinates RFClient and RFProxy instances, ' \
@@ -845,3 +1021,5 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     server = RFServer(args.configfile, args.islconfig, args.multitabledps, args.satellitedps)
+    # Initialize RPC interface
+    rpcserver = RFServerRPC(rfserver)
