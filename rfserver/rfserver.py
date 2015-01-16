@@ -893,6 +893,7 @@ class RFServer(RFProtocolFactory, IPC.IPCMessageProcessor):
     # exist.
     #TODO: include deleting associated entries from the switch's flow table as well
     def delete_map_configs(self, **kwargs):
+        count = 0
         cf_entries = self.config.get_entries(**kwargs)
         for cf_entry in cf_entries:
             self.config.remove_entry(cf_entry)
@@ -930,13 +931,13 @@ class RFServer(RFProtocolFactory, IPC.IPCMessageProcessor):
                     rms = translator.dp_delete_flows(rf_entry)
                     for rm in rms:
                         self.send_route_mod(rf_entry.ct_id, rm)
-            
+            count += 1
             self.log.info("Successfully deleted a mapping (vm_id=%s, \
             vm_port=%i) - (dp_id=%s, dp_port=%i)" % (format_id(cf_entry.vm_id), 
                                                     cf_entry.vm_port, 
                                                     format_id(cf_entry.dp_id), 
                                                     cf_entry.dp_port))            
-        return len(cf_entries)
+        return count
     
     # Add a mapping between a VM port & DP port
     def add_map_config(self, vm_id, vm_port, ct_id, dp_id, dp_port):
