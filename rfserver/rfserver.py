@@ -679,7 +679,7 @@ class RFServer(RFProtocolFactory, IPC.IPCMessageProcessor):
         if entry is None:
             entry = RFDPPortEntry(ct_id = ct_id, dp_id = dp_id, dp_port = dp_port)
             self.dpporttable.set_entry(entry)
-            sys.log.debug("Update DPPortTable with ct_id=%s, dp_id=%s, dp_port=%d" 
+            self.log.debug("Update DPPortTable with ct_id=%s, dp_id=%s, dp_port=%d" 
                           % (format_id(ct_id), format_id(dp_id), dp_port))
             entry = None
             
