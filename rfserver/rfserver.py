@@ -899,7 +899,8 @@ class RFServer(RFProtocolFactory, IPC.IPCMessageProcessor):
             rf_entry = self.rftable.get_entry_by_vm_port(cf_entry.vm_id, 
                                                          cf_entry.vm_port)
             if rf_entry is None:
-                rf_entry = self.rftable.get_entry_by_dp_port(cf_entry.dp_id,
+                rf_entry = self.rftable.get_entry_by_dp_port(cf_entry.ct_id,
+                                                             cf_entry.dp_id,
                                                              cf_entry.dp_port)
             if rf_entry is not None:
                 self.rftable.remove_entry(rf_entry)
@@ -931,7 +932,7 @@ class RFServer(RFProtocolFactory, IPC.IPCMessageProcessor):
                         self.send_route_mod(rf_entry.ct_id, rm)
             
             self.log.info("Successfully deleted a mapping (vm_id=%s, \
-            vm_port=%i) - (dp_id=%s, dp_port=%i" % (format_id(cf_entry.vm_id), 
+            vm_port=%i) - (dp_id=%s, dp_port=%i)" % (format_id(cf_entry.vm_id), 
                                                     cf_entry.vm_port, 
                                                     format_id(cf_entry.dp_id), 
                                                     cf_entry.dp_port))            
