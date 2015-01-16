@@ -110,9 +110,13 @@ class DefaultRouteModTranslator(RouteModTranslator):
 
     def handle_route_mod(self, entry, rm):
         rms = []
-        entries = self.rftable.get_entries(dp_id=entry.dp_id,
+        # Add vm_id in the query to limit the flow entry installation to only ports
+        # that are mapped to the VM
+        entries = self.rftable.get_entries(vm_id=entry.vm_id,
+                                           dp_id=entry.dp_id,
                                            ct_id=entry.ct_id)
-        entries.extend(self.isltable.get_entries(dp_id=entry.dp_id,
+        entries.extend(self.isltable.get_entries(vm_id=entry.vm_id,
+                                                 dp_id=entry.dp_id,
                                                  ct_id=entry.ct_id))
 
         # Replace the VM port with the datapath port
@@ -129,7 +133,9 @@ class DefaultRouteModTranslator(RouteModTranslator):
         rm.add_action(Action.SET_ETH_SRC(r.eth_addr))
         rm.add_action(Action.SET_ETH_DST(r.rem_eth_addr))
         rm.add_action(Action.OUTPUT(r.dp_port))
-        entries = self.rftable.get_entries(dp_id=r.dp_id, ct_id=r.ct_id)
+        entries = self.rftable.get_entries(vm_id=r.vm_id,
+                                           dp_id=r.dp_id, 
+                                           ct_id=r.ct_id)
         rms.extend(self._send_rm_with_matches(rm, r.dp_port, entries))
         return rms
     
@@ -669,7 +675,10 @@ class RFServer(RFProtocolFactory, IPC.IPCMessageProcessor):
         elif rm.get_mod() in (RMT_ADD, RMT_DELETE):
             rms.extend(translator.handle_route_mod(entry, rm))
 
-            remote_dps = self.isltable.get_entries(rem_ct=entry.ct_id,
+            # Add vm_id to avoid installing flow entries to ports that are mapped to
+            # different switches
+            remote_dps = self.isltable.get_entries(vm_id=entry.vm_id,
+                                                   rem_ct=entry.ct_id,
                                                    rem_id=entry.dp_id)
 
             for r in remote_dps:
