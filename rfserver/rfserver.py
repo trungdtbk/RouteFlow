@@ -941,8 +941,9 @@ class RFServer(RFProtocolFactory, IPC.IPCMessageProcessor):
     
     # Add a mapping between a VM port & DP port
     def add_map_config(self, vm_id, vm_port, ct_id, dp_id, dp_port):
-        if vm_id is None or vm_port is None or \
-        dp_id is None or dp_port is None or ct_id is None:
+        if (vm_id is None or vm_port is None or
+            ct_id is None or
+            dp_id is None or dp_port is None):
             return False
         
         vm_port_conf = self.config.get_config_for_vm_port(vm_id=vm_id, 
@@ -968,9 +969,9 @@ class RFServer(RFProtocolFactory, IPC.IPCMessageProcessor):
         rf_entry = RFEntry()
         if vm_port_info is not None:
             rf_entry.update_vm_port(vm_id=vm_id, vm_port=vm_port,
-                                        vs_id=vm_port_info.vs_id, 
-                                        vs_port=vm_port_info.vs_port,
-                                        eth_addr=vm_port_info.eth_addr)
+                                    vs_id=None, 
+                                    vs_port=None,
+                                    eth_addr=vm_port_info.eth_addr)
             
         if dp_port_info is not None:
             rf_entry.update_dp_port(dp_id=dp_id, dp_port=dp_port, ct_id=ct_id)
