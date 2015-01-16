@@ -14,8 +14,8 @@ import rflib.defs as defs
 
 def format_id(value):
         try:
-            value = int(value)
-            return defs.format_id(value)
+            v = int(value)
+            return defs.format_id(v)
         except ValueError, TypeError:
             return value
         
