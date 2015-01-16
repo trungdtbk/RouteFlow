@@ -917,7 +917,7 @@ class RFServer(RFProtocolFactory, IPC.IPCMessageProcessor):
                                   (format_id(rf_entry.vm_id), rf_entry.vm_port))
                     
                     translator = self.route_mod_translator[rf_entry.dp_id]
-                    rms = translator.delete_flows(rf_entry)
+                    rms = translator.dp_delete_flows(rf_entry)
                     for rm in rms:
                         self.send_route_mod(rf_entry.ct_id, rm)
             
