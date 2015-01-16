@@ -85,10 +85,19 @@ class RPC_processor():
         return self.rfserver.delete_map_configs(**kwargs)
     
     def add_map_config(self, vm_id, vm_port, ct_id, dp_id, dp_port):
-        if vm_id is not None:
+        if (vm_id is None or vm_port is None or
+            ct_id is None or
+            dp_id is None or dp_port is None):
+            return False
+        try:
             vm_id = int(vm_id, 16)
-        if dp_id is not None:
             dp_id = int(dp_id, 16)
+            ct_id = int(ct_id)
+            vm_port = int(vm_port)
+            dp_port = int(dp_port)
+        except:
+            return False
+            
         return self.rfserver.add_map_config(vm_id=vm_id, vm_port=vm_port, 
                                             ct_id=ct_id, 
                                             dp_id=dp_id, dp_port=dp_port)
