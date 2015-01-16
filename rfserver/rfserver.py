@@ -602,7 +602,7 @@ class RFServer(RFProtocolFactory, IPC.IPCMessageProcessor):
                 % (format_id(vm_id), vm_port))
 			# Should return here. No need to add an entry to rftable if the port
 			# hasn't been configured
-			return
+            return
         else:
             entry = self.rftable.get_entry_by_dp_port(config_entry.ct_id,
                                                       config_entry.dp_id,
@@ -713,7 +713,7 @@ class RFServer(RFProtocolFactory, IPC.IPCMessageProcessor):
                 # Register idle DP awaiting for configuration
                 action = REGISTER_IDLE
 				# Should not create an entry on rftable at this state
-				return
+                return
         else:
             entry = self.rftable.get_entry_by_vm_port(config_entry.vm_id,
                                                       config_entry.vm_port)
