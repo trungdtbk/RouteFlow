@@ -70,12 +70,7 @@ def myNetwork():
 
     first_test(rfserver, net)    
     second_test(rfserver, net)
-    try:
-        while True:
-            pass
-    except KeyboardInterrupt:
-        pass
-    #CLI(net)
+    CLI(net)
     net.stop()
 
 def first_test(rfserver, net):

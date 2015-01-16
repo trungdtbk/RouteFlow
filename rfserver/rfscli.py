@@ -15,9 +15,10 @@ import rflib.defs as defs
 def format_id(value):
         try:
             value = int(value)
-            return defs.format_id(value)
-        except ValueError, TypeError:
+        except:
             return value
+        
+        return defs.format_id(value)
         
 class DeleteCommand(Command):
     log = logging.getLogger(__name__)
