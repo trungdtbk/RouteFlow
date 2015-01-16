@@ -15,6 +15,9 @@ RFCONFIG_NAME = "rfconfig"
 RFISL_NAME = "rfisl"
 RFISLCONF_NAME = "rfislconf"
 
+RFVMPORTTABLE_NAME = "vmporttable"
+RFDPPORTTABLE_NAME = "dpporttable"
+
 RFSERVER_ID = "rfserver"
 RFPROXY_ID = "rfproxy"
 
