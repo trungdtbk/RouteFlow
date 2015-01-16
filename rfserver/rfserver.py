@@ -1040,6 +1040,6 @@ if __name__ == "__main__":
                         help='List of datapaths that default forward to ISL peer')
 
     args = parser.parse_args()
-    server = RFServer(args.configfile, args.islconfig, args.multitabledps, args.satellitedps)
+    rfserver = RFServer(args.configfile, args.islconfig, args.multitabledps, args.satellitedps)
     # Initialize RPC interface
     rpcserver = RFServerRPC(rfserver)
