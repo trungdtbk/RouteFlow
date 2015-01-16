@@ -989,11 +989,12 @@ class RFServer(RFProtocolFactory, IPC.IPCMessageProcessor):
                              operation_id=PCT_MAP_SUCCESS)
             self.ipc.send(RFCLIENT_RFSERVER_CHANNEL, str(rf_entry.vm_id), msg)
             
-            self.log.info("Successfully map between (vm_id=%s, vm_port=%d) - \
-                    (dp_id=%s, dp_port=%d)" %
-                                  (format_id(rf_entry.vm_id), 
-                                   rf_entry.vm_port, format_id(rf_entry.dp_id), 
-                                   rf_entry.dp_port))
+            self.log.info("Successfully map between (vm_id=%s, vm_port=%i)"
+                          "(dp_id=%s, dp_port=%i)" % 
+                          (format_id(rf_entry.vm_id),
+                           rf_entry.vm_port,
+                           format_id(rf_entry.dp_id),
+                           rf_entry.dp_port))
         return True
            
     # Update an existing mapping:
