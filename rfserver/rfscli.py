@@ -17,7 +17,6 @@ def format_id(value):
             value = int(value)
         except:
             return value
-        
         return defs.format_id(value)
         
 class DeleteCommand(Command):
