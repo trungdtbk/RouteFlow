@@ -132,7 +132,22 @@ class DefaultRouteModTranslator(RouteModTranslator):
         entries = self.rftable.get_entries(dp_id=r.dp_id, ct_id=r.ct_id)
         rms.extend(self._send_rm_with_matches(rm, r.dp_port, entries))
         return rms
-
+    
+    # Delete flow entries from switch's flow table
+    def dp_delete_flows(self, entry):
+        rms = []
+        
+        rm = RouteMod(RMT_DELETE, self.dp_id)
+        rm.add_match(Match.IN_PORT(entry.dp_port))
+        rm.add_option(self.DEFAULT_PRIORITY)
+        rms.append(rm)
+        
+        rm = RouteMod(RMT_DELETE, self.dp_id)
+        rm.set_outport(entry.dp_port)
+        rm.add_option(self.DEFAULT_PRIORITY)
+        rms.append(rm)
+        
+        return rms
 
 class SatelliteRouteModTranslator(DefaultRouteModTranslator):
 
@@ -895,12 +910,17 @@ class RFServer(RFProtocolFactory, IPC.IPCMessageProcessor):
                                              operation_id=PCT_RESET))
                     self.log.info("Resetting client port (vm_id=%s, vm_port=%i)" % 
                                   (format_id(rf_entry.vm_id), rf_entry.vm_port))
+                    
+                    translator = self.route_mod_translator[rf_entry.dp_id]
+                    rms = translator.delete_flows_by_port(rf_entry)
+                    for rm in rms:
+                        self.send_route_mod(rf_entry.ct_id, rm)
             
             self.log.info("Successfully deleted a mapping (vm_id=%s, \
             vm_port=%i) - (dp_id=%s, dp_port=%i" % (format_id(cf_entry.vm_id), 
                                                     cf_entry.vm_port, 
                                                     format_id(cf_entry.dp_id), 
-                                                    cf_entry.dp_port))
+                                                    cf_entry.dp_port))            
         return len(cf_entries)
     
     # Add a mapping between a VM port & DP port
