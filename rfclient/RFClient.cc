@@ -86,7 +86,7 @@ uint64_t get_interface_id(const char *ifname) {
     return id;
 }
 
-bool RFClient::findInterface(const char *ifName, Interface *dst) {
+bool RFClient::findInterface(const char *ifName, Interface **dst) {
     boost::lock_guard<boost::mutex> lock(this->ifMutex);
 
     map<string, Interface>::iterator it = this->ifacesMap.find(ifName);
@@ -94,7 +94,7 @@ bool RFClient::findInterface(const char *ifName, Interface *dst) {
         return false;
     }
 
-    *dst = it->second;
+    *dst = &it->second;
     return true;
 }
 

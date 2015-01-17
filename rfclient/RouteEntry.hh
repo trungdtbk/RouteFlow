@@ -9,7 +9,7 @@ class RouteEntry {
         IPAddress address;
         IPAddress gateway;
         IPAddress netmask;
-        Interface interface;
+        Interface *interface;
 
         bool operator==(const RouteEntry& other) const {
             return (this->address == other.address) and

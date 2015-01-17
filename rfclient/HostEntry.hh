@@ -9,7 +9,7 @@ class HostEntry {
     public:
         IPAddress address;
         MACAddress hwaddress;
-        Interface interface;
+        Interface *interface;
 
         bool operator==(const HostEntry& other) const {
             return (this->address == other.address) and

@@ -18,7 +18,7 @@ class RFClient : private RFProtocolFactory, private IPCMessageProcessor,
                  public InterfaceMap {
     public:
         RFClient(uint64_t id, const string &address, RouteSource);
-        bool findInterface(const char *ifName, Interface *dst);
+        bool findInterface(const char *ifName, Interface **dst);
 
     private:
         FlowTable* flowTable;

@@ -75,7 +75,7 @@ class InterfaceMap {
          *
          * Returns true on success, or false on failure.
          */
-        virtual bool findInterface(const char *ifName, Interface *dst) = 0;
+        virtual bool findInterface(const char *ifName, Interface **dst) = 0;
 };
 
 #endif /* INTERFACE_HH */

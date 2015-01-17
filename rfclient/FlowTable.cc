@@ -266,7 +266,7 @@ void FlowTable::GWResolverCb(FlowTable *ft) {
                     syslog(LOG_DEBUG,
                           "Still cannot resolve gateway %s, will retry route %s/%s",
                           gw_str.c_str(), addr_str.c_str(), mask_str.c_str());
-                    ft->resolveGateway(re.gateway, re.interface);
+                    ft->resolveGateway(re.gateway, *re.interface);
                 } else {
                     syslog(LOG_DEBUG,
                            "Adding previously unresolved route %s/%s via %s",
@@ -295,15 +295,12 @@ void FlowTable::GWResolverCb(FlowTable *ft) {
  * On error, logs it and returns -1.
  */
 int FlowTable::getInterface(const char *intf, const char *type,
-                            Interface *iface) {
-    Interface temp;
-    if (!ifMap->findInterface(intf, &temp)) {
+                            Interface **iface) {
+    if (!ifMap->findInterface(intf, iface)) {
         syslog(LOG_ERR, "Interface %s not found, dropping %s entry\n",
                intf, type);
         return -1;
     }
-
-    *iface = temp;
     return 0;
 }
 
@@ -655,7 +652,7 @@ int FlowTable::sendToHw(RouteModType mod, const RouteEntry& re) {
         return -1;
     }
 
-    return sendToHw(mod, re.address, re.netmask, re.interface, remoteMac);
+    return sendToHw(mod, re.address, re.netmask, *re.interface, remoteMac);
 }
 
 int FlowTable::sendToHw(RouteModType mod, const HostEntry& he) {
@@ -670,7 +667,7 @@ int FlowTable::sendToHw(RouteModType mod, const HostEntry& he) {
         return -1;
     }
 
-    return sendToHw(mod, he.address, *mask.get(), he.interface, he.hwaddress);
+    return sendToHw(mod, he.address, *mask.get(), *he.interface, he.hwaddress);
 }
 
 int FlowTable::sendToHw(RouteModType mod, const IPAddress& addr,

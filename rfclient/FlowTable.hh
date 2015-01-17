@@ -108,7 +108,7 @@ class FlowTable {
         boost::mutex ndMutex;
 
         bool is_port_down(uint32_t port);
-        int getInterface( const char *iface, const char *type, Interface*);
+        int getInterface( const char *iface, const char *type, Interface**);
 
         void initNLListener();
         int initiateND(const char *hostAddr);
