@@ -157,7 +157,7 @@ RFClient::RFClient(uint64_t id, const string &address, RouteSource source) {
 
 void RFClient::startFlowTable(RouteSource source) {
     this->flowTable = new FlowTable(this->id, this, &(this->rm_q), source);
-    boost::thread t(*this->flowTable);
+    boost::thread t(boost::ref(*this->flowTable));
     t.detach();
 }
 
@@ -297,6 +297,11 @@ bool RFClient::process(const string &, const string &, const string &,
             case PCT_MAP_SUCCESS:
                 syslog(LOG_INFO, "Successfully mapped port (vm_port=%d)", vm_port);
                 sendAllInterfaceToControllerRouteMods(vm_port);
+                /* Flush all RM exist in hostTable & routeTable to datapath.
+                * That serves two purposes: reduce convergence time & fix 
+                * missing flow entries for dynamic mapping.
+                */
+                this->flowTable->flushRouteMod();
                 break;
             case PCT_ROUTEMOD_ACK:
                 syslog(LOG_DEBUG, "Got RouteMod ack (vm_port=%d)", vm_port);

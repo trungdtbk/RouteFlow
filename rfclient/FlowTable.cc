@@ -35,6 +35,20 @@ static const MACAddress MAC_ADDR_NONE(EMPTY_MAC_ADDRESS);
 // TODO: implement a way to pause the flow table updates when the VM is not
 //       associated with a valid datapath
 
+void FlowTable::flushRouteMod() {
+    map<string, HostEntry>::iterator h_it;
+    for (h_it = hostTable.begin(); h_it != hostTable.end(); h_it++) {
+        HostEntry& hentry = h_it->second;
+        this->sendToHw(RMT_ADD, hentry);
+    }
+
+    map<string, RouteEntry>::iterator r_it;
+    for (r_it = routeTable.begin(); r_it != routeTable.end(); r_it++) {
+        RouteEntry& rentry = r_it->second;
+        this->sendToHw(RMT_ADD, rentry);
+    }
+}
+
 /**
  * Change callbacks are called when a new netlink message is received.
  */
@@ -337,23 +351,24 @@ void FlowTable::updateHostTable(struct rtnl_neigh *neigh,
     int ifindex, state;
 
     boost::this_thread::interruption_point();
-
+/*
     if (action != NL_ACT_NEW) {
-        /**
+         **
          * TODO: We should definitely include support for hosts being deleted.
          * It is also possible that hosts will get lost as they are
          * added if they exist in the cache and change from a non NUD_VALID
          * state to a NUD_VALID state.
-         */
+         *
         return;
     }
-
+*/
     state = rtnl_neigh_get_state(neigh);
     if (!(state & NUD_VALID)) {
         /**
          * TODO: NUD_VALID includes stale entries, we may wish to handle these
          * differently to NUD_REACHABLE entries.
          */
+        syslog(LOG_DEBUG, "rtnl_neigh  state (%d) handle is not implemented", state);
         return;
     }
 
@@ -400,8 +415,17 @@ void FlowTable::updateHostTable(struct rtnl_neigh *neigh,
             stopND(host);
             break;
         }
-    }
 
+        case NL_ACT_CHANGE:
+            syslog(LOG_DEBUG, "netlink NL_ACT_CHANGE handle unimplemented");
+            break;
+        case NL_ACT_DEL:
+            syslog(LOG_DEBUG, "netlink NL_ACT_DEL handle unimplemented");
+            break;
+        default:
+            syslog(LOG_DEBUG, "Unimplemented netlink event (%d)", action);
+        break;
+    }
     return;
 }
 

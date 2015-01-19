@@ -692,7 +692,13 @@ class RFServer(RFProtocolFactory, IPC.IPCMessageProcessor):
         for rm in rms:
             self.send_route_mod(entry.ct_id, rm)
 
-        self.queue_routemod_ack(entry.ct_id, vm_id, vm_port)
+        if rms:
+            self.queue_routemod_ack(entry.ct_id, vm_id, vm_port)
+        else:
+            # Send back an ACK immediately if no RM to be sent to PROXY. This is to fix the 
+            # issue that RFClient stuck waiting for ACK.
+            ack = PortConfig(vm_id=vm_id, vm_port=vm_port, operation_id=PCT_ROUTEMOD_ACK)
+            self.ipc_send(RFCLIENT_RFSERVER_CHANNEL, str(vm_id), ack)
 
     # DatapathPortRegister methods
     def register_dp_port(self, ct_id, dp_id, dp_port):
@@ -812,7 +818,7 @@ class RFServer(RFProtocolFactory, IPC.IPCMessageProcessor):
             return True
         else:
             if (self.rftable.is_dp_registered(ct_id, dp_id) or
-                self.isltable.is_dp_registered(ct_id, dp_id)):
+                self.isltable.is_dp_registered(ct_id, dp_id) or True):
                 if dp_id not in self.route_mod_translator:
                     self.log.info("Configuring datapath (dp_id=%s)" % format_id(dp_id))
                     if dp_id in self.multitabledps:
@@ -926,11 +932,13 @@ class RFServer(RFProtocolFactory, IPC.IPCMessageProcessor):
                                              operation_id=PCT_RESET))
                     self.log.info("Resetting client port (vm_id=%s, vm_port=%i)" % 
                                   (format_id(rf_entry.vm_id), rf_entry.vm_port))
-                    
-                    translator = self.route_mod_translator[rf_entry.dp_id]
-                    rms = translator.dp_delete_flows(rf_entry)
-                    for rm in rms:
-                        self.send_route_mod(rf_entry.ct_id, rm)
+                    # Temporarily disable for testing. Also, looking for an alternative to delete
+                    # unwanted flow entries after new entries have been installed, in order to
+                    # reduce loss of traffic
+                    #translator = self.route_mod_translator[rf_entry.dp_id]
+                    #rms = translator.dp_delete_flows(rf_entry)
+                    #for rm in rms:
+                    #    self.send_route_mod(rf_entry.ct_id, rm)
             count += 1
             self.log.info("Successfully deleted a mapping (vm_id=%s, \
             vm_port=%i) - (dp_id=%s, dp_port=%i)" % (format_id(cf_entry.vm_id), 

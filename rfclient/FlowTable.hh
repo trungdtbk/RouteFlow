@@ -74,6 +74,13 @@ class FlowTable {
         void updateRouteTable(struct rtnl_route *route, int action);
         uint64_t get_vm_id();
 
+        /* Flush all RM from hostTable and routeTable everytime when a port is mapped
+        * successfully. This is to reduce convergence time and to fix to the problem
+        * related to dynamica mapping configuration (map the port to another physical 
+        * port or adding a mapping after RM was sent).
+        */
+        void flushRouteMod();
+
     private:
         RouteSource source;
         InterfaceMap* ifMap;
