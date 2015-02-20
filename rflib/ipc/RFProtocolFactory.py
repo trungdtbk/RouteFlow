@@ -17,3 +17,7 @@ class RFProtocolFactory(IPC.IPCMessageFactory):
             return DataPlaneMap()
         if type_ == ROUTE_MOD:
             return RouteMod()
+        if type_ == DATAPATH_PORT_REMOVE:
+            return DatapathPortRemove()
+        if type_ == DATAPATH_PORT_STATUS:
+            return DatapathPortStatus()

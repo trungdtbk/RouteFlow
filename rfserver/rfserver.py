@@ -149,7 +149,7 @@ class DefaultRouteModTranslator(RouteModTranslator):
         rms.append(rm)
         
         rm = RouteMod(RMT_DELETE, self.dp_id)
-        rm.set_outport(entry.dp_port)
+        rm.add_match(Match.ETHERNET(entry.eth_addr))
         rm.add_option(self.DEFAULT_PRIORITY)
         rms.append(rm)
         
@@ -535,6 +535,8 @@ class RFServer(RFProtocolFactory, IPC.IPCMessageProcessor):
             self.log.info("Datapaths that support multiple tables: %s",
                           list(self.multitabledps))
 
+        # Queue for flow entries going to be deleted
+        self.del_rm_q = [] 
         self.ack_q = Queue.Queue()
         self.dp_q = Queue.Queue()
         self.ipc_lock = threading.Lock()
@@ -545,6 +547,11 @@ class RFServer(RFProtocolFactory, IPC.IPCMessageProcessor):
         self.worker.daemon = True
         self.worker.start()
 
+        # Delete RMs worker
+        self.del_rm_worker = threading.Thread(target=self.del_rm_worker)
+        self.del_rm_worker.daemon = True
+        self.del_rm_worker.start()
+
         self.ipc.listen(RFCLIENT_RFSERVER_CHANNEL, self, self, False)
         self.ipc.listen(RFSERVER_RFPROXY_CHANNEL, self, self, False)
 
@@ -553,6 +560,18 @@ class RFServer(RFProtocolFactory, IPC.IPCMessageProcessor):
         self.ipc.send(channel, channel_id, msg)
         self.ipc_lock.release()
     
+    # Delete old flow entries from switch flow table
+    def del_rm_worker(self):
+        while True:
+            if self.del_rm_q:
+                (secs, ct_id, rm) = self.del_rm_q[0]
+                elapse = time.time() - secs
+                if elapse > DEL_RM_DELAY: 
+                    self.send_route_mod(ct_id, rm)
+                    self.del_rm_q.pop(0)
+            else:
+                time.sleep(0.5)
+
     def dp_worker(self):
         while True:
             (ct_id, rm) = self.dp_q.get(block=True)
@@ -577,7 +596,8 @@ class RFServer(RFProtocolFactory, IPC.IPCMessageProcessor):
             if type_ == DATAPATH_PORT_REGISTER:
                 self.register_dp_port(msg.get_ct_id(),
                                       msg.get_dp_id(),
-                                      msg.get_dp_port())
+                                      msg.get_dp_port(),
+                                      msg.get_port_state())
             elif type_ == DATAPATH_DOWN:
                 self.set_dp_down(msg.get_ct_id(), msg.get_dp_id())
             elif type_ == VIRTUAL_PLANE_MAP:
@@ -585,6 +605,29 @@ class RFServer(RFProtocolFactory, IPC.IPCMessageProcessor):
                               msg.get_vs_id(), msg.get_vs_port())
             elif type_ == ROUTE_MOD:
                 self.send_routemod_acks()
+            elif type_ == DATAPATH_PORT_STATUS:
+                dpport = self.dpporttable.get_dp_port_info(msg.get_ct_id(),
+                                                           msg.get_dp_id(),
+                                                           msg.get_dp_port())
+                if dpport is not None:
+                    dpport.state = msg.get_port_state()
+                    self.dpporttable.set_entry(dpport)
+                    self.log.info('Update port state of port %i to state %i' % (dpport.dp_port, dpport.state))
+
+                entry = self.rftable.get_entry_by_dp_port(msg.get_ct_id(), msg.get_dp_id(), msg.get_dp_port())
+                if entry is not None and entry.get_status() == RFENTRY_ACTIVE:
+                    operation_id = None
+                    if msg.get_port_state() == DP_PORT_UP:
+                        operation_id = PCT_PORT_UP
+                    elif msg.get_port_state() == DP_PORT_DOWN:
+                        operation_id = PCT_PORT_DOWN
+                    msg = PortConfig(vm_id=entry.vm_id, vm_port=entry.vm_port,
+                                 operation_id=operation_id)
+                    self.ipc_send(RFCLIENT_RFSERVER_CHANNEL, str(entry.vm_id), msg)
+            elif type_ == DATAPATH_PORT_REMOVE:
+                self.delete_dp_port(msg.get_ct_id(),
+                                    msg.get_dp_id(),
+                                    msg.get_dp_port())
 
     # Port register methods
     def register_vm_port(self, vm_id, vm_port, eth_addr):
@@ -606,7 +649,7 @@ class RFServer(RFProtocolFactory, IPC.IPCMessageProcessor):
             action = REGISTER_IDLE
             self.log.warning('No config entry for client port (vm_id=%s, vm_port=%i)'
                 % (format_id(vm_id), vm_port))
-			# Should return here. No need to add an entry to rftable if the port
+			# Trung: Should return here. No need to add an entry to rftable if the port
 			# hasn't been configured
             return
         else:
@@ -695,13 +738,13 @@ class RFServer(RFProtocolFactory, IPC.IPCMessageProcessor):
         if rms:
             self.queue_routemod_ack(entry.ct_id, vm_id, vm_port)
         else:
-            # Send back an ACK immediately if no RM to be sent to PROXY. This is to fix the 
+            # Trung: Send back an ACK immediately if no RM to be sent to PROXY. This is to fix the 
             # issue that RFClient stuck waiting for ACK.
             ack = PortConfig(vm_id=vm_id, vm_port=vm_port, operation_id=PCT_ROUTEMOD_ACK)
             self.ipc_send(RFCLIENT_RFSERVER_CHANNEL, str(vm_id), ack)
 
     # DatapathPortRegister methods
-    def register_dp_port(self, ct_id, dp_id, dp_port):
+    def register_dp_port(self, ct_id, dp_id, dp_port, port_state):
         stop = self.config_dp(ct_id, dp_id)
         if stop:
             return
@@ -710,11 +753,13 @@ class RFServer(RFProtocolFactory, IPC.IPCMessageProcessor):
                                                   dp_id=dp_id, 
                                                   dp_port=dp_port)
         if entry is None:
-            entry = RFDPPortEntry(ct_id = ct_id, dp_id = dp_id, dp_port = dp_port)
+            entry = RFDPPortEntry(ct_id = ct_id, dp_id = dp_id, dp_port = dp_port, state=port_state)
             self.dpporttable.set_entry(entry)
             self.log.debug("Update DPPortTable with ct_id=%s, dp_id=%s, dp_port=%d" 
                           % (format_id(ct_id), format_id(dp_id), dp_port))
             entry = None
+        else:
+            entry.state = port_state
             
         # The logic down here is pretty much the same as register_vm_port
         action = None
@@ -738,6 +783,114 @@ class RFServer(RFProtocolFactory, IPC.IPCMessageProcessor):
             # If there's an idle VM entry matching configuration, associate
             elif entry.get_status() == RFENTRY_IDLE_VM_PORT:
                 action = REGISTER_ASSOCIATED
+
+        # Apply action
+        if action == REGISTER_IDLE:
+            self.rftable.set_entry(RFEntry(ct_id=ct_id, dp_id=dp_id,
+                                           dp_port=dp_port))
+            self.log.info("Registering datapath port as idle (dp_id=%s, "
+                          "dp_port=%i)" % (format_id(dp_id), dp_port))
+        elif action == REGISTER_ASSOCIATED:
+            entry.associate(dp_id, dp_port, ct_id)
+            self.rftable.set_entry(entry)
+            self.log.info("Registering datapath port and associating to "
+                          "client port (dp_id=%s, dp_port=%i, vm_id=%s, "
+                          "vm_port=%s)" % (format_id(dp_id), dp_port,
+                                           format_id(entry.vm_id),
+                                           entry.vm_port))
+        elif action == REGISTER_ISL:
+            self._register_islconf(islconfs, ct_id, dp_id, dp_port)
+
+    def _register_islconf(self, c_entries, ct_id, dp_id, dp_port):
+        for conf in c_entries:
+            entry = None
+            eth_addr = None
+            if conf.rem_id != dp_id or conf.rem_ct != ct_id:
+                entry = self.isltable.get_entry_by_addr(conf.rem_ct,
+                                                        conf.rem_id,
+                                                        conf.rem_port,
+                                                        conf.rem_eth_addr)
+                eth_addr = conf.eth_addr
+            else:
+                entry = self.isltable.get_entry_by_addr(conf.ct_id,
+                                                        conf.dp_id,
+                                                        conf.dp_port,
+                                                        conf.eth_addr)
+                eth_addr = conf.rem_eth_addr
+
+            if entry is None:
+                n_entry = RFISLEntry(vm_id=conf.vm_id, ct_id=ct_id,
+                                     dp_id=dp_id, dp_port=dp_port,
+                                     eth_addr=eth_addr)
+                self.isltable.set_entry(n_entry)
+                self.log.info("Registering ISL port as idle "
+                              "(dp_id=%s, dp_port=%i, eth_addr=%s)" %
+                              (format_id(dp_id), dp_port, eth_addr))
+            elif entry.get_status() == RFISL_IDLE_DP_PORT:
+                entry.associate(ct_id, dp_id, dp_port, eth_addr)
+                self.isltable.set_entry(entry)
+                n_entry = self.isltable.get_entry_by_remote(entry.ct_id,
+                                                            entry.dp_id,
+                                                            entry.dp_port,
+                                                            entry.eth_addr)
+                if n_entry is None:
+                    n_entry = RFISLEntry(vm_id=entry.vm_id, ct_id=ct_id,
+                                         dp_id=dp_id, dp_port=dp_port,
+                                         eth_addr=entry.rem_eth_addr,
+                                         rem_ct=entry.ct_id,
+                                         rem_id=entry.dp_id,
+                                         rem_port=entry.dp_port,
+                                         rem_eth_addr=entry.eth_addr)
+                    self.isltable.set_entry(n_entry)
+                else:
+                    n_entry.associate(ct_id, dp_id, dp_port, eth_addr)
+                    self.isltable.set_entry(n_entry)
+                self.log.info("Registering ISL port and associating to "
+                              "remote ISL port (ct_id=%s, dp_id=%s, "
+                              "dp_port=%s, rem_ct=%s, rem_id=%s, "
+                              "rem_port=%s)" % (ct_id, format_id(dp_id),
+                                                dp_port, entry.ct_id,
+                                                format_id(entry.dp_id),
+                                                entry.dp_port))
+    # Handle the event when a port is removed from a datapath 
+    def delete_dp_port(self, ct_id, dp_id, dp_port):
+        entry = self.dpporttable.get_dp_port_info(ct_id=ct_id, 
+                                                  dp_id=dp_id, 
+                                                  dp_port=dp_port)
+        if entry is not None:
+            self.dpporttable.remove_entry(entry)
+            
+        action = None
+        config_entry = self.config.get_config_for_dp_port(ct_id, dp_id,
+                                                          dp_port)
+        if config_entry is None:
+            islconf_entries = self.islconf.get_entries_by_port(ct_id, dp_id, dp_port)
+            entries = self.isltable.get_entries(ct_id=ct_id,
+                                          dp_id=dp_id,
+                                          dp_port=dp_port)
+            for entry in entries:
+                entry.make_idle(RFISL_IDLE_REMOTE)
+                self.isltable.set_entry(entry)
+            
+            entries = self.isltable.get_entries(rem_ct=ct_id,
+                                          rem_dp=dp_id,
+                                          rem_port=dp_port)
+            for entry in entries:
+                entry.make_idle(RFISL_IDLE_DP_PORT)
+                self.isltable.set_entry(entry)
+
+        else:
+            entry = self.rftable.get_entry_by_vm_port(config_entry.vm_id,
+                                                      config_entry.vm_port)
+            if entry is None:
+                self.rftable.remove_entry(entry)
+                if entry.get_status() == RFENTRY_ACTIVE:
+                    self.reset_vm_port(entry.vm_id, entry.vm_port)
+                    
+                    translator = self.route_mod_translator[entry.dp_id]
+                    rms = translator.dp_delete_flows(entry)
+                    for rm in rms:
+                        self.del_rm_q.append((time.time(), entry.ct_id, rm))
 
         # Apply action
         if action == REGISTER_IDLE:
@@ -834,6 +987,12 @@ class RFServer(RFProtocolFactory, IPC.IPCMessageProcessor):
             return False
     # DatapathDown methods
     def set_dp_down(self, ct_id, dp_id):
+        # Trung: Remove RouteMod Translator, otherwise, when the sw restarts, it won't get configured
+        try:
+            del self.route_mod_translator[dp_id]
+        except:
+            pass
+
         for entry in self.dpporttable.get_entries(dp_id=dp_id):
             self.dpporttable.remove_entry(entry)
         for entry in self.rftable.get_dp_entries(ct_id, dp_id):
@@ -885,8 +1044,18 @@ class RFServer(RFProtocolFactory, IPC.IPCMessageProcessor):
                                dp_id=entry.dp_id, dp_port=entry.dp_port,
                                vs_id=vs_id, vs_port=vs_port)
             self.ipc_send(RFSERVER_RFPROXY_CHANNEL, str(entry.ct_id), msg)
+
+            dpport = self.dpporttable.get_dp_port_info(entry.ct_id,
+                                                       entry.dp_id,
+                                                       entry.dp_port)
+            oper_id = PCT_MAP_SUCCESS
+            if dpport.state ==  DP_PORT_UP:
+                oper_id |= PCT_PORT_UP
+            elif dpport.state == DP_PORT_DOWN:
+                oper_id |= PCT_PORT_DOWN
+
             msg = PortConfig(vm_id=vm_id, vm_port=vm_port,
-                             operation_id=PCT_MAP_SUCCESS)
+                             operation_id=oper_id)
             self.ipc_send(RFCLIENT_RFSERVER_CHANNEL, str(entry.vm_id), msg)
             self.log.info("Mapping client-datapath association "
                           "(vm_id=%s, vm_port=%i, dp_id=%s, "
@@ -897,7 +1066,6 @@ class RFServer(RFProtocolFactory, IPC.IPCMessageProcessor):
     
     # Delete mapping configs from CONFIG table & also RFTable if the associations
     # exist.
-    #TODO: include deleting associated entries from the switch's flow table as well
     def delete_map_configs(self, **kwargs):
         count = 0
         cf_entries = self.config.get_entries(**kwargs)
@@ -932,13 +1100,14 @@ class RFServer(RFProtocolFactory, IPC.IPCMessageProcessor):
                                              operation_id=PCT_RESET))
                     self.log.info("Resetting client port (vm_id=%s, vm_port=%i)" % 
                                   (format_id(rf_entry.vm_id), rf_entry.vm_port))
-                    # Temporarily disable for testing. Also, looking for an alternative to delete
-                    # unwanted flow entries after new entries have been installed, in order to
-                    # reduce loss of traffic
-                    #translator = self.route_mod_translator[rf_entry.dp_id]
-                    #rms = translator.dp_delete_flows(rf_entry)
-                    #for rm in rms:
-                    #    self.send_route_mod(rf_entry.ct_id, rm)
+                    
+                    # Put the RMs for deleting flow entries into queue
+                    # which a thread will read and send to proxy for actual deletion 
+                    translator = self.route_mod_translator[rf_entry.dp_id]
+                    rms = translator.dp_delete_flows(rf_entry)
+                    for rm in rms:
+                        self.del_rm_q.append((time.time(), rf_entry.ct_id, rm))
+
             count += 1
             self.log.info("Successfully deleted a mapping (vm_id=%s, \
             vm_port=%i) - (dp_id=%s, dp_port=%i)" % (format_id(cf_entry.vm_id), 
@@ -1046,6 +1215,59 @@ class RFServer(RFProtocolFactory, IPC.IPCMessageProcessor):
                 return False
         self.add_map_config(vm_id, vm_port, ct_id, dp_id, dp_port)
         return True
+
+    def add_isl_config(self, vm_id, 
+                       ct_id, dp_id, dp_port, eth_addr,
+                       rem_ct, rem_id, rem_port, rem_eth_addr):
+        entry = RFISLConfEntry(vm_id=vm_id,
+                               ct_id=ct_id, dp_id=dp_id, dp_port=dp_port, eth_addr=eth_addr,
+                               rem_ct=rem_ct, rem_dp=rem_dp, rem_port=rem_port, rem_eth_addr=rem_addr_eth)
+        self.islconf.set_entry(entry)
+
+        dpport = self.dpporttable.get_dp_port_info(ct_id=ct_id, dp_id=dp_id, dp_port=dp_port)
+        r_dpport = self.dpporttable.get_dp_port_info(ct_id=rem_ct, dp_id=rem_id, dp_port=rem_port)
+        entry = None
+        r_entry = None
+        if dpport is not None:
+            entry = RFISLEntry(vm_id=vm_id, 
+                               ct_id=ct_id, 
+                               dp_id=dp_id, 
+                               dp_port=dp_port,
+                               eth_addr=eth_addr)
+        if r_dpport is not None:
+            r_entry = RFISLEntry(vm_id=vm_id, 
+                               ct_id=rem_ct, 
+                               dp_id=rem_dp, 
+                               dp_port=rem_port,
+                               eth_addr=rem_eth_addr)
+
+        if entry is not None:
+            if r_entry is not None:
+                entry.associate(r_entry.ct_id, r_entry.dp_id, r_entry.dp_port, r_entry.eth_addr)
+                r_entry.associate(entry.ct_id, entry.dp_id, entry.dp_port, entry.eth_addr) 
+                self.islconf.set_entry(r_entry)
+            self.islconf.set_entry(entry)
+        elif r_entry is not None:
+            self.islconf.set_entry(r_entry)
+
+    def delete_isl_configs(self, **kwargs):
+        cf_entries = self.islconf.get_entries(**kwargs)
+        for cf_entry in cf_entries:
+            self.islconf.remove_entry(cf_entry)
+            entries = self.isltable.get_entries(ct_id=cf_entry.ct_id,
+                                                dp_id=cf_entry.dp_id,
+                                                dp_port=cf_entry.dp_port,
+                                                eth_addr=cf_entry.eth_addr)
+            
+            entries.extend(self.isltable.get_entries(ct_id=cf_entry.rem_ct,
+                                                dp_id=cf_entry.rem_id,
+                                                dp_port=cf_entry.rem__port,
+                                                eth_addr=cf_entry.rem_eth_addr))
+            for entry in entries:
+                self.isltable.remove_entry(entry)
+        
+        #TODO: Update flow table
+
 
 if __name__ == "__main__":
     description = 'RFServer co-ordinates RFClient and RFProxy instances, ' \

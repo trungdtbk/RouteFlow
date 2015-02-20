@@ -79,7 +79,7 @@ class FlowTable {
         * related to dynamica mapping configuration (map the port to another physical 
         * port or adding a mapping after RM was sent).
         */
-        void flushRouteMod();
+        void floodRouteMod();
 
     private:
         RouteSource source;

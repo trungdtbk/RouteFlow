@@ -21,6 +21,10 @@ class RouteEntry {
         string toString() const {
             return this->address.toString() + "/" + this->netmask.toString()
                     + " via " + this->netmask.toString();
+            // Change to this to fix the issue whith "Received duplicate route"
+            //return this->address.toString() + "/" + this->netmask.toString()
+            //        + " via " + this->gateway.toString();
+
         }
 };
 

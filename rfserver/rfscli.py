@@ -220,12 +220,17 @@ class ViewCommand(Command):
     def view_dpports(self, **kwargs):
         rfserver = self.app.rfserver
         entries = json.loads(rfserver.get_rfdpports())
-        self.app.stdout.write("{:<8} {:<8} {:<8}\n\n".\
-                              format('ct_id', 'dp_port', 'dp_port'))
+        self.app.stdout.write("{:<8} {:<8} {:<8} {:<8}\n\n".\
+                              format('ct_id', 'dp_id', 'dp_port', 'status'))
         for entry in entries:
-            self.app.stdout.write("{:<8} {:<8} {:<8}\n".\
+            state = 'UNKNOW'
+            if entry['state'] == 3:
+                state = 'UP'
+            if entry['state'] == 4:
+                state = 'DOWN'
+            self.app.stdout.write("{:<8} {:<8} {:<8} {:<8}\n".\
                                   format(entry['ct_id'], 
-                                         entry['dp_id'], entry['dp_port']))
+                                         entry['dp_id'], entry['dp_port'], state))
          
         self.app.stdout.write("\n")
 

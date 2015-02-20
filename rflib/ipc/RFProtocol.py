@@ -15,6 +15,8 @@ DATAPATH_DOWN = 3
 VIRTUAL_PLANE_MAP = 4
 DATA_PLANE_MAP = 5
 ROUTE_MOD = 6
+DATAPATH_PORT_REMOVE = 7
+DATAPATH_PORT_STATUS = 8
 
 class PortRegister(IPCMessage):
     def __init__(self, vm_id=None, vm_port=None, hwaddress=None):
@@ -133,13 +135,24 @@ class PortConfig(IPCMessage):
         return s
 
 class DatapathPortRegister(IPCMessage):
-    def __init__(self, ct_id=None, dp_id=None, dp_port=None):
+    def __init__(self, ct_id=None, dp_id=None, dp_port=None, port_state=None):
         self.set_ct_id(ct_id)
         self.set_dp_id(dp_id)
         self.set_dp_port(dp_port)
+        self.set_port_state(port_state)
 
     def get_type(self):
         return DATAPATH_PORT_REGISTER
+
+    def get_port_state(self):
+        return self.port_state
+
+    def set_port_state(self, port_state):
+        port_state = -1 if port_state is None else port_state
+        try:
+            self.port_state = int(port_state)
+        except:
+            self.port_state = -1
 
     def get_ct_id(self):
         return self.ct_id
@@ -175,6 +188,138 @@ class DatapathPortRegister(IPCMessage):
         self.set_ct_id(data["ct_id"])
         self.set_dp_id(data["dp_id"])
         self.set_dp_port(data["dp_port"])
+        self.set_port_state(data["port_state"])
+
+    def to_dict(self):
+        data = {}
+        data["ct_id"] = str(self.get_ct_id())
+        data["dp_id"] = str(self.get_dp_id())
+        data["dp_port"] = str(self.get_dp_port())
+        data["port_state"] = str(self.get_port_state())
+        return data
+
+    def __str__(self):
+        s = "DatapathPortRegister\n"
+        s += "  ct_id: " + format_id(self.get_ct_id()) + "\n"
+        s += "  dp_id: " + format_id(self.get_dp_id()) + "\n"
+        s += "  dp_port: " + str(self.get_dp_port()) + "\n"
+        return s
+
+# 
+class DatapathPortStatus(IPCMessage):
+    def __init__(self, ct_id=None, dp_id=None, dp_port=None, port_state=None):
+        self.set_ct_id(ct_id)
+        self.set_dp_id(dp_id)
+        self.set_dp_port(dp_port)
+        self.set_port_state(port_state)
+
+    def get_port_state(self):
+        return self.port_state
+
+    def set_port_state(self, port_state):
+        port_state = 0 if port_state is None else port_state
+        try:
+            self.port_state = int(port_state)
+        except:
+            self.port_state = 0 
+
+    def get_type(self):
+        return DATAPATH_PORT_STATUS
+
+    def get_ct_id(self):
+        return self.ct_id
+
+    def set_ct_id(self, ct_id):
+        ct_id = 0 if ct_id is None else ct_id
+        try:
+            self.ct_id = int(ct_id)
+        except:
+            self.ct_id = 0
+
+    def get_dp_id(self):
+        return self.dp_id
+
+    def set_dp_id(self, dp_id):
+        dp_id = 0 if dp_id is None else dp_id
+        try:
+            self.dp_id = int(dp_id)
+        except:
+            self.dp_id = 0
+
+    def get_dp_port(self):
+        return self.dp_port
+
+    def set_dp_port(self, dp_port):
+        dp_port = 0 if dp_port is None else dp_port
+        try:
+            self.dp_port = int(dp_port)
+        except:
+            self.dp_port = 0
+
+    def from_dict(self, data):
+        self.set_ct_id(data["ct_id"])
+        self.set_dp_id(data["dp_id"])
+        self.set_dp_port(data["dp_port"])
+        self.set_port_state(data["port_state"])
+
+    def to_dict(self):
+        data = {}
+        data["ct_id"] = str(self.get_ct_id())
+        data["dp_id"] = str(self.get_dp_id())
+        data["dp_port"] = str(self.get_dp_port())
+        data["port_state"] = str(self.get_port_state())
+        return data
+
+    def __str__(self):
+        s = "DatapathPortStatus\n"
+        s += "  ct_id: " + format_id(self.get_ct_id()) + "\n"
+        s += "  dp_id: " + format_id(self.get_dp_id()) + "\n"
+        s += "  dp_port: " + str(self.get_dp_port()) + "\n"
+        return s
+
+class DatapathPortRemove(IPCMessage):
+    def __init__(self, ct_id=None, dp_id=None, dp_port=None):
+        self.set_ct_id(ct_id)
+        self.set_dp_id(dp_id)
+        self.set_dp_port(dp_port)
+
+    def get_type(self):
+        return DATAPATH_PORT_REMOVE
+
+    def get_ct_id(self):
+        return self.ct_id
+
+    def set_ct_id(self, ct_id):
+        ct_id = 0 if ct_id is None else ct_id
+        try:
+            self.ct_id = int(ct_id)
+        except:
+            self.ct_id = 0
+
+    def get_dp_id(self):
+        return self.dp_id
+
+    def set_dp_id(self, dp_id):
+        dp_id = 0 if dp_id is None else dp_id
+        try:
+            self.dp_id = int(dp_id)
+        except:
+            self.dp_id = 0
+    
+    def get_dp_port(self):
+        return self.dp_port
+
+    def set_dp_port(self, dp_port):
+        dp_port = 0 if dp_port is None else dp_port
+        try:
+            self.dp_port = int(dp_port)
+        except:
+            self.dp_port = 0
+
+    def from_dict(self, data):
+        self.set_ct_id(data["ct_id"])
+        self.set_dp_id(data["dp_id"])
+        self.set_dp_port(data["dp_port"])
 
     def to_dict(self):
         data = {}
@@ -184,11 +329,12 @@ class DatapathPortRegister(IPCMessage):
         return data
 
     def __str__(self):
-        s = "DatapathPortRegister\n"
+        s = "DatapathPortDown\n"
         s += "  ct_id: " + format_id(self.get_ct_id()) + "\n"
         s += "  dp_id: " + format_id(self.get_dp_id()) + "\n"
         s += "  dp_port: " + str(self.get_dp_port()) + "\n"
         return s
+
 
 class DatapathDown(IPCMessage):
     def __init__(self, ct_id=None, dp_id=None):

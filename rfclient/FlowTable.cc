@@ -35,7 +35,7 @@ static const MACAddress MAC_ADDR_NONE(EMPTY_MAC_ADDRESS);
 // TODO: implement a way to pause the flow table updates when the VM is not
 //       associated with a valid datapath
 
-void FlowTable::flushRouteMod() {
+void FlowTable::floodRouteMod() {
     map<string, HostEntry>::iterator h_it;
     for (h_it = hostTable.begin(); h_it != hostTable.end(); h_it++) {
         HostEntry& hentry = h_it->second;
@@ -244,6 +244,22 @@ void FlowTable::GWResolverCb(FlowTable *ft) {
                     }
                     break;
 
+                case RMT_MODIFY:
+                    if (existingEntry) {
+                        ft->routeTable[re_key] = re;
+                        if (ft->findHost(re.gateway) == MAC_ADDR_NONE) {
+                            syslog(LOG_ERR,
+                                   "Cannot resolve gateway %s, will retry route %s/%s",
+                                    gw_str.c_str(), addr_str.c_str(), mask_str.c_str());
+                            ft->unresolvedRoutes.insert(re_key);
+                        } else {
+                            syslog(LOG_DEBUG,
+                                   "Adding route %s/%s via %s",
+                                   addr_str.c_str(), mask_str.c_str(), gw_str.c_str());
+                            ft->sendToHw(RMT_ADD, pr.rentry);
+                        }
+                    }
+                    break;
                 case RMT_DELETE:
                     if (existingEntry) {
                         ft->routeTable.erase(re_key);
@@ -401,6 +417,9 @@ void FlowTable::updateHostTable(struct rtnl_neigh *neigh,
     hentry->hwaddress = MACAddress(mac);
 
     switch (action) {
+        case NL_ACT_CHANGE:
+            if (*hentry == this->hostTable[host])
+                break;
         case NL_ACT_NEW: {
             syslog(LOG_DEBUG, "netlink->RTM_NEWNEIGH: ip=%s, mac=%s",
                    host.c_str(), mac);
@@ -415,16 +434,9 @@ void FlowTable::updateHostTable(struct rtnl_neigh *neigh,
             stopND(host);
             break;
         }
-
-        case NL_ACT_CHANGE:
-            syslog(LOG_DEBUG, "netlink NL_ACT_CHANGE handle unimplemented");
-            break;
         case NL_ACT_DEL:
-            syslog(LOG_DEBUG, "netlink NL_ACT_DEL handle unimplemented");
+            syslog(LOG_DEBUG, "netlink NL_ACT_DEL (unimplemented event)");
             break;
-        default:
-            syslog(LOG_DEBUG, "Unimplemented netlink event (%d)", action);
-        break;
     }
     return;
 }
@@ -444,7 +456,9 @@ void FlowTable::updateRouteTable(  struct rtnl_route *route,
 
     boost::this_thread::interruption_point();
 
-    if (!(action == NL_ACT_NEW || action == NL_ACT_DEL)) {
+    if (!(action == NL_ACT_NEW || 
+        action == NL_ACT_DEL || 
+        action == NL_ACT_CHANGE)) {
         return;
     }
 
@@ -520,6 +534,11 @@ void FlowTable::updateRouteTable(  struct rtnl_route *route,
             syslog(LOG_DEBUG, "netlink->RTM_NEWROUTE: net=%s, mask=%s, gw=%s",
                    net.c_str(), mask.c_str(), gw.c_str());
             this->pendingRoutes.push(PendingRoute(RMT_ADD, *rentry));
+            break;
+        case NL_ACT_CHANGE:
+            syslog(LOG_DEBUG, "netlink->RTM_CHANGEROUTE: net=%s, mask=%s, gw=%s",
+                   net.c_str(), mask.c_str(), gw.c_str());
+            this->pendingRoutes.push(PendingRoute(RMT_MODIFY, *rentry));
             break;
         case NL_ACT_DEL:
             syslog(LOG_DEBUG, "netlink->RTM_DELROUTE: net=%s, mask=%s, gw=%s",

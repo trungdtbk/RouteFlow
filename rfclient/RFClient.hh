@@ -48,5 +48,8 @@ class RFClient : private RFProtocolFactory, private IPCMessageProcessor,
         void deactivateInterfaces(uint32_t vm_port);
         uint32_t get_port_number(string ifName, bool *physical, uint32_t *vlan);
         map<string, Interface> load_interfaces();
+
+        int set_if_up(uint32_t vm_port);
+        int set_if_down(uint32_t vm_port);
 };
 #endif /* RFCLIENT_HH */

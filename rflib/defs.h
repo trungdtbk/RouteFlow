@@ -36,10 +36,10 @@ typedef enum route_mod_type {
 	RMT_ADD,			/* Add flow to datapath */
 	RMT_DELETE,			/* Remove flow from datapath */
 	RMT_CONTROLLER,			/* Add flow to datapath, output to controller */
-        RMT_ADD_GROUP,                  /* Add group to datapath */
-        RMT_DELETE_GROUP,               /* Remove group from datapath */
+    RMT_ADD_GROUP,                  /* Add group to datapath */
+    RMT_DELETE_GROUP,               /* Remove group from datapath */
 	/* Future implementation */
-	//RMT_MODIFY		/* Modify existing flow (Unimplemented) */
+	RMT_MODIFY		/* Modify existing flow (Unimplemented) */
 } RouteModType;
 
 typedef enum port_config_type {
@@ -47,6 +47,8 @@ typedef enum port_config_type {
     PCT_RESET,          /* Reset the client port to inactive. */
     PCT_MAP_SUCCESS,    /* Mapping was successful; port can be brought up. */
     PCT_ROUTEMOD_ACK,
+    PCT_PORT_UP,
+    PCT_PORT_DOWN
 } PortModType;
 
 #define PC_MAP 0

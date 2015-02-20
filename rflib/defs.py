@@ -63,12 +63,22 @@ PCT_MAP_REQUEST = 0     # (deprecated) Request for a mapping packet.
 PCT_RESET = 1           # Reset the client port to inactive.
 PCT_MAP_SUCCESS = 2     # Mapping was successful; port can be brought up.
 PCT_ROUTEMOD_ACK = 3
+PCT_PORT_UP = 4
+PCT_PORT_DOWN = 5
+
+# Datapath Port Configuration
+DP_PORT_ADD = 1
+DP_PORT_DELETE = 2
+DP_PORT_UP  = 3
+DP_PORT_DOWN = 4
 
 # Dataplane Configuration Types, for supporting dynamic map
 DCT_MAP_ADD = 0
 DCT_MAP_DELETE = 1
 PC_MAP = 0
 PC_RESET = 1
+
+DEL_RM_DELAY = 5
 
 # Format 12-digit hex ID
 format_id = lambda dp_id: hex(dp_id).rstrip("L") if (dp_id is not None) else 'None' 

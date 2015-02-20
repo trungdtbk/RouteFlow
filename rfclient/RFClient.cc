@@ -51,6 +51,56 @@ int is_interface_running(const char * ifname) {
     return ifr.ifr_flags & IFF_RUNNING;
 }
 
+int RFClient::set_if_up(uint32_t vm_port) {
+    std::map<string, Interface>::iterator it;
+    for (it = this->ifacesMap.begin();
+         it != this->ifacesMap.end();
+         ++it) {
+        Interface &iface = it->second;
+        if (iface.port == vm_port) {
+            struct ifreq ifr;
+
+            int sock = socket(AF_INET, SOCK_DGRAM, 0);
+            if (sock < 0) {
+                return -1;
+            }
+            
+            memset(&ifr, 0, sizeof(ifr));
+            strncpy(ifr.ifr_name, it->first.c_str(), sizeof(ifr.ifr_name) - 1);
+            ifr.ifr_name[sizeof(ifr.ifr_name) - 1] = '\0';
+            ifr.ifr_flags |= IFF_UP;
+            int ret = ioctl(sock, SIOCSIFFLAGS, &ifr);
+            close(sock);
+            return ret;
+        }
+    }
+}
+
+int RFClient::set_if_down(uint32_t vm_port) {
+    std::map<string, Interface>::iterator it;
+    for (it = this->ifacesMap.begin();
+         it != this->ifacesMap.end();
+         ++it) {
+        Interface &iface = it->second;
+        if (iface.port == vm_port) {
+            struct ifreq ifr;
+
+            int sock = socket(AF_INET, SOCK_DGRAM, 0);
+            if (sock < 0) {
+                return -1;
+            }
+            
+            memset(&ifr, 0, sizeof(ifr));
+            strncpy(ifr.ifr_name, it->first.c_str(), sizeof(ifr.ifr_name) - 1);
+            ifr.ifr_name[sizeof(ifr.ifr_name) - 1] = '\0';
+            ifr.ifr_flags &= ~IFF_UP;
+            int ret = ioctl(sock, SIOCSIFFLAGS, &ifr);
+            close(sock);
+            return ret;
+        }
+    }
+}
+
 /* Get the MAC address of the interface. */
 int get_hwaddr_byname(const char * ifname, uint8_t hwaddr[]) {
     if ((NULL == ifname) || (NULL == hwaddr)) {
@@ -294,14 +344,25 @@ bool RFClient::process(const string &, const string &, const string &,
                 syslog(LOG_INFO, "Received port reset (vm_port=%d)", vm_port);
                 deactivateInterfaces(vm_port);
                 break;
-            case PCT_MAP_SUCCESS:
+            case PCT_MAP_SUCCESS | PCT_PORT_DOWN:
+                set_if_down(vm_port); 
                 syslog(LOG_INFO, "Successfully mapped port (vm_port=%d)", vm_port);
                 sendAllInterfaceToControllerRouteMods(vm_port);
                 /* Flush all RM exist in hostTable & routeTable to datapath.
                 * That serves two purposes: reduce convergence time & fix 
                 * missing flow entries for dynamic mapping.
                 */
-                this->flowTable->flushRouteMod();
+                this->flowTable->floodRouteMod();
+                break;
+            case PCT_MAP_SUCCESS | PCT_PORT_UP:
+                set_if_up(vm_port); 
+                syslog(LOG_INFO, "Successfully mapped port (vm_port=%d)", vm_port);
+                sendAllInterfaceToControllerRouteMods(vm_port);
+                /* Flush all RM exist in hostTable & routeTable to datapath.
+                * That serves two purposes: reduce convergence time & fix 
+                * missing flow entries for dynamic mapping.
+                */
+                this->flowTable->floodRouteMod();
                 break;
             case PCT_ROUTEMOD_ACK:
                 syslog(LOG_DEBUG, "Got RouteMod ack (vm_port=%d)", vm_port);
@@ -309,6 +370,14 @@ bool RFClient::process(const string &, const string &, const string &,
                     boost::lock_guard<boost::mutex> lock(this->rm_outstanding_mutex);
                     --(this->rm_outstanding);
                 }
+                break;
+            case PCT_PORT_UP:
+                if (set_if_up(vm_port) < 0) {
+                    syslog(LOG_WARNING, "Failed to bring up the port %d", vm_port); 
+                }
+                break;
+            case PCT_PORT_DOWN:
+                set_if_down(vm_port);
                 break;
             default:
                 syslog(LOG_WARNING, "Received unrecognised PortConfig message");

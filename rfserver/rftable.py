@@ -583,6 +583,7 @@ class RFDPPortEntry:
         pack_into_dict(data, self, "ct_id")
         pack_into_dict(data, self, "dp_port")
         pack_into_dict(data, self, "dp_id")
+        pack_into_dict(data, self, "state")
         return data
     
     def from_dict(self, data):
@@ -590,3 +591,4 @@ class RFDPPortEntry:
         load_from_dict(data, self, "ct_id")
         load_from_dict(data, self, "dp_port")
         load_from_dict(data, self, "dp_id")
+        load_from_dict(data, self, "state")
