@@ -284,7 +284,7 @@ void FlowTable::GWResolverCb(FlowTable *ft) {
                 const string mask_str = re.netmask.toString();
                 const string gw_str = re.gateway.toString();
                 if (ft->findHost(re.gateway) == MAC_ADDR_NONE) {
-                    usleep(1000); // SOMETHINGS NOT quite right here we'll rate limit for now
+                    usleep(1000000); // SOMETHINGS NOT quite right here we'll rate limit for now
                     syslog(LOG_DEBUG,
                           "Still cannot resolve gateway %s, will retry route %s/%s",
                           gw_str.c_str(), addr_str.c_str(), mask_str.c_str());
@@ -363,23 +363,43 @@ void FlowTable::updateHostTable(struct rtnl_neigh *neigh,
 
     boost::this_thread::interruption_point();
 
-    if (action != NL_ACT_NEW) {
-        /**
-         * TODO: We should definitely include support for hosts being deleted.
-         * It is also possible that hosts will get lost as they are
-         * added if they exist in the cache and change from a non NUD_VALID
-         * state to a NUD_VALID state.
-         */
-        return;
-    }
-
     state = rtnl_neigh_get_state(neigh);
-    if (!(state & NUD_VALID)) {
-        /**
-         * TODO: NUD_VALID includes stale entries, we may wish to handle these
-         * differently to NUD_REACHABLE entries.
-         */
-        return;
+
+    switch (state) {
+        case NUD_DELAY:// schedule ARP request, no need to handle
+        case NUD_PROBE: // ARP request being sent, no need to hanlde
+        {
+            syslog(LOG_DEBUG, "Received netlink with NUD_PROBE or NUD_DELAY \
+                    do nothing");
+            return; // Do nothing regarding these two states
+        }
+        case NUD_INCOMPLETE:// First ARP request sent, send ARP request
+        case NUD_FAILED:// no response, need to resend ARP request
+        {
+            syslog(LOG_DEBUG, "Received netlink with NUD_FAILED or NUD_INCOMPLETE \
+                    do nothing");
+            return;
+        }
+        case NUD_REACHABLE:
+        {
+            syslog(LOG_DEBUG, "Received netlink with NUD_REACHABLE");
+            break;
+        }
+        case NUD_STALE:// need to verify by sending an ARP request 
+        {     
+            syslog(LOG_DEBUG, "Received netlink with NUD_STALE");
+            break;
+        }
+        case NUD_NOARP: 
+        {
+            syslog(LOG_DEBUG, "Received netlink with NUD_NOARP");
+            break;
+        }
+        case NUD_PERMANENT: 
+        {
+            syslog(LOG_DEBUG, "Received netlink with NUD_PERMANENT");
+            break;
+        }
     }
 
     ifindex = rtnl_neigh_get_ifindex(neigh);
@@ -394,7 +414,7 @@ void FlowTable::updateHostTable(struct rtnl_neigh *neigh,
 
     hentry->address = IPAddress(rtnl_neigh_get_dst(neigh));
     const string host = hentry->address.toString();
-
+    
     if (getInterface(intf, "host", &hentry->interface) != 0) {
         return;
     }
@@ -408,10 +428,34 @@ void FlowTable::updateHostTable(struct rtnl_neigh *neigh,
         syslog(LOG_DEBUG, "Received host entry ip=%s with blank mac. Ignoring", host.c_str());
         return;
     }
+
     hentry->hwaddress = MACAddress(mac);
+    stopND(host);
 
     switch (action) {
-        case NL_ACT_NEW: {
+        case NL_ACT_CHANGE:
+        {
+            map<string, HostEntry>::iterator iter;
+            iter = this->hostTable.find(host);
+            if (iter != FlowTable::hostTable.end()) {
+                syslog(LOG_DEBUG, "netlink->RTM_UPDATEEIGH: ip=%s, mac=%s",
+                   host.c_str(), mac);
+                
+                if (iter->second == *hentry)
+                    return;
+
+                this->sendToHw(RMT_ADD, *hentry);
+                {
+                    // Add to host table
+                    boost::lock_guard<boost::mutex> lock(hostTableMutex);
+                    iter->second = *hentry;
+                }
+                break;
+            }
+            // Otherwise, add as a new one
+        }
+        case NL_ACT_NEW:
+        {
             syslog(LOG_DEBUG, "netlink->RTM_NEWNEIGH: ip=%s, mac=%s",
                    host.c_str(), mac);
             this->sendToHw(RMT_ADD, *hentry);
@@ -422,11 +466,36 @@ void FlowTable::updateHostTable(struct rtnl_neigh *neigh,
             }
             // If we have been attempting neighbour discovery for this
             // host, then we can close the associated socket.
-            stopND(host);
             break;
         }
-    }
+        case NL_ACT_DEL:
+        {
+            map<string, HostEntry>::iterator iter;
+            iter = this->hostTable.find(host);
+            if (iter != FlowTable::hostTable.end()) {
+                syslog(LOG_DEBUG, "netlink->RTM_DELETE_NEIGH ip=%s, mac=%s",
+                   host.c_str(), mac);
 
+                this->sendToHw(RMT_DELETE, iter->second);
+                {
+                    // Add to host table
+                    boost::lock_guard<boost::mutex> lock(hostTableMutex);
+                    this->hostTable.erase(iter);
+                }
+            } 
+            break;
+        }
+        case NL_ACT_GET:
+        {
+            syslog(LOG_DEBUG, "Received Netlink action NL_ACT_GET, do nothing");
+            break; // Do nothing here
+        }
+        case NL_ACT_SET:
+        {
+            syslog(LOG_DEBUG, "Received Netlink action NL_ACT_SET, do nothing");
+            break; // Do nothing here
+        }
+    }
     return;
 }
 
